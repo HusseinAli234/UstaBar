@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "UstaBar"
     DATABASE_URL: str
+    BOT_TOKEN: str
     # POSTGRES_SERVER: str = "db"
     # POSTGRES_USER: str = "user"
     # POSTGRES_PASSWORD: str = "password"
