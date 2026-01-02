@@ -1,0 +1,31 @@
+name: Deploy to Server
+
+# Запускать при пуше в ветку main (или master)
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Переходим в папку проекта (замени my_app на название папки на сервере)
+            cd ~/my_app
+            
+            # Получаем свежий код
+            git pull origin main
+            
+            # Пересобираем и перезапускаем контейнеры в фоне
+            # Если изменился requirements.txt или Dockerfile, --build пересоберет образ
+            docker compose up -d --build
+            
+            # (Опционально) Чистим старые образы, чтобы не забить диск
+            docker image prune -f
