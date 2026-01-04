@@ -52,12 +52,12 @@ async def cmd_start(message: Message, state: FSMContext):
     # Создаем клавиатуру с Web App (Ваш сайт с картой)
     # В url укажите ваш https адрес (ngrok или реальный домен)
     builder = InlineKeyboardBuilder()
-    webapp_url = f"{settings.BASE_URL}/webapp"
+    webapp_url = f"{settings.BASE_URL}/webapp/select-service"
     builder.button(text="🗺 Открыть карту", web_app=WebAppInfo(url=webapp_url))
     builder.button(text="📝 Ввести данные", callback_data="input_data")
     builder.adjust(1)
 
-    text = "Привет! Это CRM Freelance бот.\nНажми кнопку ниже, чтобы открыть карту."
+    text = "Привет! Это UstaBar бот.\nНажми кнопку ниже, чтобы открыть карту."
 
     # Отправляем сообщение и СОХРАНЯЕМ его ID
     msg = await message.answer(text, reply_markup=builder.as_markup())

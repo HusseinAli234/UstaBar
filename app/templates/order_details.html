@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Детали заказа{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full max-w-md mx-auto space-y-6 pt-4">
+
+    <div>
+        <h1 class="text-2xl font-bold text-tg_text">Детали работы</h1>
+        <p class="text-gray-500 text-sm mt-1">Уточните условия заказа</p>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            На какое время нужен специалист?
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+            {% for option in time_options %}
+            <label class="cursor-pointer relative">
+                <input type="radio" name="duration" value="{{ option.value }}" class="peer sr-only" onchange="validateForm()">
+                
+                <div class="w-full p-3 text-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-tg_bg text-tg_text 
+                            peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 
+                            dark:peer-checked:bg-blue-900/30 dark:peer-checked:text-blue-400
+                            transition-all font-medium">
+                    {{ option.label }}
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <label for="price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Бюджет (₽)
+        </label>
+        <div class="relative rounded-md shadow-sm">
+            <input type="number" id="price" name="price" placeholder="Например: 5000"
+                   class="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-tg_bg text-tg_text pl-4 pr-12 py-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm"
+                   oninput="validateForm()">
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <span class="text-gray-500 sm:text-sm">RUB</span>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <label for="comment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Комментарий (опционально)
+        </label>
+        <textarea id="comment" name="comment" rows="3" 
+                  class="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-tg_bg text-tg_text p-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm"
+                  placeholder="Что именно нужно сделать?"></textarea>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.BackButton.show(); // Показываем кнопку "Назад" (стрелочка сверху)
+
+    // Если нажали "Назад" - возвращаемся к выбору услуги
+    tg.BackButton.onClick(() => {
+        history.back();
+    });
+
+    const mainBtn = tg.MainButton;
+    mainBtn.setText("Указать адрес"); // Текст следующего шага
+    mainBtn.hide(); // Сначала скрыта
+
+    // Функция проверки: заполнены ли обязательные поля?
+    function validateForm() {
+        const duration = document.querySelector('input[name="duration"]:checked');
+        const price = document.getElementById('price').value;
+
+        // Если выбрано время И введена цена - показываем кнопку
+        if (duration && price && price.length > 0) {
+            mainBtn.show();
+        } else {
+            mainBtn.hide();
+        }
+    }
+
+    // Обработка клика "Указать адрес"
+    mainBtn.onClick(() => {
+        // Собираем данные
+        const data = {
+            service_id: "{{ service_id }}", // Пришло с сервера (Jinja)
+            duration: document.querySelector('input[name="duration"]:checked').value,
+            price: document.getElementById('price').value,
+            comment: document.getElementById('comment').value
+        };
+
+        // ВАРИАНТ А: Переход на страницу карты через URL параметры (простой)
+        // Мы "тащим" все данные в URL. Для MVP это ок.
+        const params = new URLSearchParams(data).toString();
+        window.location.href = `/webapp/map-select?${params}`;
+        
+        // ВАРИАНТ Б (Продвинутый): Можно сохранить во временное хранилище браузера
+        // sessionStorage.setItem('order_draft', JSON.stringify(data));
+        // window.location.href = `/webapp/map-select`;
+    });
+</script>
+{% endblock %}

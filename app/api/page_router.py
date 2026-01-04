@@ -13,3 +13,47 @@ async def get_webapp_page(request: Request):
         name="index.html",   
         context={"request": request, "title": "Ustabar Map"} # Переменные для шаблона
     )
+
+@router.get("/webapp/select-service")
+async def select_service_page(request: Request):
+    # Этот список можно потом брать из базы данных
+    services = [
+        {"id": "cleaning", "name": "🧹 Клининг"},
+        {"id": "electrician", "name": "⚡ Электрик"},
+        {"id": "plumber", "name": "🔧 Сантехник"},
+        {"id": "nanny", "name": "🧸 Няня"},
+        {"id": "tutor", "name": "📚 Репетитор"},
+        {"id": "courier", "name": "📦 Курьер"},
+    ]
+    
+    return templates.TemplateResponse(
+        name="select_service.html",
+        context={
+            "request": request,
+            "services": services
+        }
+    )
+
+
+@router.get("/webapp/order-details")
+async def order_details_page(request: Request, service_id: str):
+    """
+    Страница заполнения деталей заказа.
+    service_id передается с прошлой страницы.
+    """
+    # Варианты времени (можно тоже вынести в настройки или БД)
+    time_options = [
+        {"value": "2", "label": "2 часа"},
+        {"value": "3", "label": "3 часа"},
+        {"value": "4", "label": "4 часа"},
+        {"value": "5", "label": "5+ часов"},
+    ]
+
+    return templates.TemplateResponse(
+        name="order_details.html",
+        context={
+            "request": request,
+            "service_id": service_id,
+            "time_options": time_options
+        }
+    )
