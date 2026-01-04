@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.core.config import settings
-from app.api.auth import auth  # Ваши старые роуты
+# from app.api.auth import auth  # Ваши старые роуты
 # Импортируем ваш роутер с логикой бота (который мы писали ранее)
 from app.handlers.user import user_router 
 
@@ -42,7 +42,7 @@ app = FastAPI(
 )
 
 # Подключаем ваши обычные API роуты (auth и т.д.)
-app.include_router(auth.router)
+# app.include_router(auth.router)
 
 
 # --- Самое главное: Роут для приема сообщений от Telegram ---
