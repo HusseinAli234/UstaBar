@@ -2,13 +2,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
-
+from app.api.page_router import router as page_router
 from app.core.config import settings
-# from app.api.auth import auth  # Ваши старые роуты
-# Импортируем ваш роутер с логикой бота (который мы писали ранее)
 from app.handlers.user import user_router 
 
-# --- Инициализация Бота и Диспетчера ---
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -43,15 +40,12 @@ app = FastAPI(
 
 # Подключаем ваши обычные API роуты (auth и т.д.)
 # app.include_router(auth.router)
-
+app.include_router(page_router)
 
 # --- Самое главное: Роут для приема сообщений от Telegram ---
 @app.post(settings.WEBHOOK_PATH)
 async def bot_webhook(request: Request):
-    """
-    Сюда Telegram шлет JSON с сообщениями.
-    Мы пересылаем его в aiogram.
-    """
+
     # Получаем JSON из запроса
     telegram_update = await request.json()
     

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Карта заказов</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 { font-size: 20px; }
+        #user-data { margin-top: 20px; color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>🗺 Ваша карта здесь</h1>
+    <p>Привет, <span id="username">...</span>!</p>
+    
+    <div id="user-data">Загрузка данных...</div>
+
+    <script>
+        // Инициализация
+        let tg = window.Telegram.WebApp;
+        tg.expand(); // Раскрыть на весь экран
+
+        // Получаем данные пользователя
+        let user = tg.initDataUnsafe.user;
+        
+        if (user) {
+            document.getElementById("username").innerText = user.first_name;
+            document.getElementById("user-data").innerText = `Ваш ID: ${user.id}`;
+        } else {
+            document.getElementById("user-data").innerText = "Запущено не из Telegram";
+        }
+
+        // Кнопка "Главная" внизу (стандартная кнопка Телеграма)
+        tg.MainButton.setText("Отправить геопозицию");
+        tg.MainButton.show();
+
+        tg.MainButton.onClick(function(){
+            tg.sendData("Я нажал кнопку!"); // Отправить данные боту
+        });
+    </script>
+</body>
+</html>
