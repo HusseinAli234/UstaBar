@@ -52,21 +52,35 @@
     // Настраиваем Главную Кнопку (по умолчанию скрыта)
     tg.MainButton.setText("Далее");
     tg.MainButton.hide();
+    select.addEventListener('input', onSelect);
+    select.addEventListener('change', onSelect);
+
+    function onSelect() {
+    const selectedText = select.options[select.selectedIndex].text;
+    const selectedValue = select.value;
+
+    preview.textContent = `Вы выбрали: ${selectedText}`;
+    preview.classList.remove('opacity-0');
+
+    if (selectedValue) {
+        tg.MainButton.show();
+    }
+}
 
     // 2. Слушаем изменения в списке
-    select.addEventListener('change', function() {
-        const selectedText = select.options[select.selectedIndex].text;
-        const selectedValue = select.value;
+    // select.addEventListener('change', function() {
+    //     const selectedText = select.options[select.selectedIndex].text;
+    //     const selectedValue = select.value;
 
-        // Показываем превью
-        preview.textContent = `Вы выбрали: ${selectedText}`;
-        preview.classList.remove('opacity-0');
+    //     // Показываем превью
+    //     preview.textContent = `Вы выбрали: ${selectedText}`;
+    //     preview.classList.remove('opacity-0');
 
-        // Показываем кнопку "Далее" в интерфейсе Телеграма
-        if (selectedValue) {
-            tg.MainButton.show();
-        }
-    });
+    //     // Показываем кнопку "Далее" в интерфейсе Телеграма
+    //     if (selectedValue) {
+    //         tg.MainButton.show();
+    //     }
+    // });
 
     // 3. Обработка нажатия на кнопку "Далее"
     tg.MainButton.onClick(function() {
