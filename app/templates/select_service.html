@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Выбор услуги{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center h-full space-y-6">
+    
+    <div class="text-center space-y-2">
+        <h1 class="text-2xl font-bold text-tg_text">Что нужно сделать?</h1>
+        <p class="text-gray-500 text-sm">Выберите категорию услуги</p>
+    </div>
+
+    <div class="w-full max-w-xs relative">
+        <label for="service-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Категория
+        </label>
+        
+        <div class="relative">
+            <select id="service-select" 
+                    class="block w-full appearance-none bg-tg_bg border border-gray-300 dark:border-gray-600 text-tg_text py-4 px-4 pr-8 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-blue-500 transition-colors shadow-sm text-lg">
+                <option value="" disabled selected>-- Нажмите для выбора --</option>
+                
+                {% for service in services %}
+                    <option value="{{ service.id }}">{{ service.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                <svg class="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <div id="result-preview" class="opacity-0 transition-opacity text-center p-4 bg-blue-50 dark:bg-gray-800 rounded-lg text-blue-600 dark:text-blue-400 font-medium">
+        </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Инициализация Телеграма
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // Элементы
+    const select = document.getElementById('service-select');
+    const preview = document.getElementById('result-preview');
+
+    // Настраиваем Главную Кнопку (по умолчанию скрыта)
+    tg.MainButton.setText("Далее");
+    tg.MainButton.hide();
+
+    // 2. Слушаем изменения в списке
+    select.addEventListener('change', function() {
+        const selectedText = select.options[select.selectedIndex].text;
+        const selectedValue = select.value;
+
+        // Показываем превью
+        preview.textContent = `Вы выбрали: ${selectedText}`;
+        preview.classList.remove('opacity-0');
+
+        // Показываем кнопку "Далее" в интерфейсе Телеграма
+        if (selectedValue) {
+            tg.MainButton.show();
+        }
+    });
+
+    // 3. Обработка нажатия на кнопку "Далее"
+    tg.MainButton.onClick(function() {
+        const value = select.value;
+    
+    window.location.href = `/webapp/order-details?service_id=${value}`;
+        
+    });
+
+</script>
+{% endblock %}

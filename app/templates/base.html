@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}UstaBar{% endblock %}</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tg_bg: 'var(--tg-theme-bg-color, #fff)',
+                        tg_text: 'var(--tg-theme-text-color, #000)',
+                        tg_btn: 'var(--tg-theme-button-color, #3390ec)',
+                        tg_btn_text: 'var(--tg-theme-button-text-color, #fff)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body { background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col p-4">
+
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
