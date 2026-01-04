@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     BOT_TOKEN: str
     BASE_URL: str = "https://ustabar.pp.ua" 
     WEBHOOK_PATH: str = "/webhook/telegram"
+    MINIO_Endpoint: str = "minio:9000" # По дефолту localhost для локальной разработки
+    MINIO_Access_Key: str = "minioadmin"
+    MINIO_Secret_Key: str = "minioadmin"
+    MINIO_Secure: bool = False # False для http (без SSL)
     # POSTGRES_SERVER: str = "db"
     # POSTGRES_USER: str = "user"
     # POSTGRES_PASSWORD: str = "password"

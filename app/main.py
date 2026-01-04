@@ -5,6 +5,11 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from app.api.page_router import router as page_router
 from app.core.config import settings
 from app.handlers.user import user_router 
+from app.api.upload_router import router as upload_router
+from app.core.storage import init_storage
+
+# ...
+init_storage() # Создаем бакет при старте
 
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -41,7 +46,7 @@ app = FastAPI(
 # Подключаем ваши обычные API роуты (auth и т.д.)
 # app.include_router(auth.router)
 app.include_router(page_router)
-
+app.include_router(upload_router)
 # --- Самое главное: Роут для приема сообщений от Telegram ---
 @app.post(settings.WEBHOOK_PATH)
 async def bot_webhook(request: Request):

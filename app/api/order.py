@@ -1,6 +1,8 @@
 # Временно добавьте в app/api/page_router.py или создайте новый router
 from pydantic import BaseModel
+from fastapi import APIRouter
 
+router = APIRouter(tags=["Frontend"])
 class OrderCreateSchema(BaseModel):
     service_id: str
     duration: str
