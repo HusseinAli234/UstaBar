@@ -57,3 +57,40 @@ async def order_details_page(request: Request, service_id: str):
             "time_options": time_options
         }
     )
+
+
+@router.get("/webapp/map-select")
+async def map_select_page(
+    request: Request,
+    service_id: str,
+    duration: str,
+    price: int,
+    comment: str = ""
+):
+    """
+    Страница карты. Принимает все накопленные данные.
+    """
+    # Словарь названий для красоты
+    service_names = {
+        "cleaning": "🧹 Клининг",
+        "electrician": "⚡ Электрик",
+        "plumber": "🔧 Сантехник",
+        # добавьте остальные...
+    }
+    
+    service_name = service_names.get(service_id, service_id)
+
+    return templates.TemplateResponse(
+        name="map_select.html",
+        context={
+            "request": request,
+            # Передаем данные, чтобы JS мог их собрать и отправить
+            "order_data": {
+                "service_id": service_id,
+                "service_name": service_name,
+                "duration": duration,
+                "price": price,
+                "comment": comment
+            }
+        }
+    )

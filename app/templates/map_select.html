@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Укажите адрес{% endblock %}
+
+{% block content %}
+<div class="relative w-full h-[calc(100vh-20px)] rounded-xl overflow-hidden shadow-lg">
+    
+    <div class="absolute top-4 left-4 right-4 z-[500]">
+        <div class="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-md flex items-center">
+            <span class="text-gray-400 pl-2">📍</span>
+            <input type="text" id="address-input" 
+                   placeholder="Введите адрес или поставьте точку..." 
+                   class="w-full bg-transparent border-none focus:ring-0 text-sm text-tg_text placeholder-gray-400 ml-2">
+        </div>
+    </div>
+
+    <div id="map" class="w-full h-full z-0"></div>
+
+    <div id="summary-card" class="absolute bottom-0 left-0 right-0 z-[500] bg-white dark:bg-gray-900 rounded-t-2xl shadow-[0_-5px_15px_rgba(0,0,0,0.1)] transform translate-y-full transition-transform duration-300 p-5">
+        <h3 class="font-bold text-lg mb-3 text-tg_text">Проверьте данные</h3>
+        
+        <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <div class="flex justify-between">
+                <span>Услуга:</span>
+                <span class="font-medium text-tg_text">{{ order_data.service_name }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span>Время:</span>
+                <span class="font-medium text-tg_text">{{ order_data.duration }} ч.</span>
+            </div>
+            <div class="flex justify-between">
+                <span>Бюджет:</span>
+                <span class="font-medium text-green-600">{{ order_data.price }} ₽</span>
+            </div>
+            <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                <span class="block text-xs text-gray-400">Адрес:</span>
+                <span id="final-address" class="font-medium text-tg_text">...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => history.back());
+
+    // Данные с сервера (из Python словаря в JS объект)
+    const initialOrderData = {{ order_data | tojson }};
+    
+    // Переменные состояния
+    let currentMarker = null;
+    let selectedCoords = null;
+    let selectedAddress = "";
+
+    // 1. Инициализация карты (центр - Москва или Бишкек, можно менять)
+    // По хорошему надо запрашивать геопозицию юзера, но пока возьмем дефолт
+    const map = L.map('map').setView([55.7558, 37.6173], 13);
+
+    // Добавляем слой карты (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OSM'
+    }).addTo(map);
+
+    // Попробуем получить реальную локацию юзера
+    map.locate({setView: true, maxZoom: 16});
+    
+    // Событие: Локация найдена
+    map.on('locationfound', function(e) {
+        setPin(e.latlng); // Ставим пин туда, где юзер
+    });
+
+
+    // 2. Логика клика по карте
+    map.on('click', function(e) {
+        setPin(e.latlng);
+    });
+
+    // Функция установки булавки
+    function setPin(latlng) {
+        // Удаляем старый маркер
+        if (currentMarker) map.removeLayer(currentMarker);
+        
+        // Ставим новый
+        currentMarker = L.marker(latlng).addTo(map);
+        selectedCoords = latlng;
+        
+        // Анимация карты к точке
+        map.panTo(latlng);
+
+        // "Магия": Получаем адрес по координатам (Nominatim API)
+        fetchAddress(latlng.lat, latlng.lng);
+        
+        // Показываем кнопку "Подтвердить адрес"
+        tg.MainButton.setText("Выбрать этот адрес");
+        tg.MainButton.show();
+        
+        // Скрываем пока сводку, если она была открыта
+        hideSummary();
+    }
+
+    // 3. Обратное геокодирование (Координаты -> Текст)
+    async function fetchAddress(lat, lng) {
+        const input = document.getElementById('address-input');
+        input.value = "Загрузка адреса...";
+        
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await response.json();
+            
+            // Берем улицу и номер дома, или display_name целиком
+            const addr = data.address;
+            const shortAddr = (addr.road ? addr.road : '') + (addr.house_number ? ', ' + addr.house_number : '');
+            
+            selectedAddress = shortAddr || data.display_name;
+            input.value = selectedAddress;
+        } catch (e) {
+            input.value = "Не удалось определить адрес";
+            selectedAddress = "Координаты: " + lat.toFixed(4) + ", " + lng.toFixed(4);
+        }
+    }
+    
+    // 4. Логика Главной Кнопки
+    tg.MainButton.onClick(() => {
+        const summaryCard = document.getElementById('summary-card');
+        
+        // Если кнопка говорит "Выбрать адрес" -> Показываем итог
+        if (tg.MainButton.text === "Выбрать этот адрес") {
+            showSummary();
+        } 
+        // Если кнопка говорит "Подтвердить заказ" -> Отправляем данные
+        else if (tg.MainButton.text === "✅ Подтвердить заказ") {
+            sendOrder();
+        }
+    });
+
+    function showSummary() {
+        document.getElementById('final-address').innerText = selectedAddress;
+        document.getElementById('summary-card').classList.remove('translate-y-full'); // Выезжает снизу
+        tg.MainButton.setText("✅ Подтвердить заказ");
+        tg.MainButton.color = "#34d399"; // Зеленый цвет (по желанию)
+    }
+
+    function hideSummary() {
+        document.getElementById('summary-card').classList.add('translate-y-full');
+        tg.MainButton.setText("Выбрать этот адрес");
+        tg.MainButton.color = tg.themeParams.button_color; // Вернуть стандартный цвет
+    }
+    
+    // 5. Отправка данных на бэкенд
+    async function sendOrder() {
+        tg.MainButton.showProgress(); // Крутилка загрузки
+        
+        const payload = {
+            ...initialOrderData, // id услуги, время, цена...
+            address: selectedAddress,
+            latitude: selectedCoords.lat,
+            longitude: selectedCoords.lng
+        };
+
+        try {
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                tg.MainButton.hideProgress();
+                tg.close(); // Закрываем WebApp
+                // Или можно отправить alert("Заказ создан!");
+            } else {
+                alert("Ошибка сервера!");
+                tg.MainButton.hideProgress();
+            }
+        } catch (e) {
+            alert("Ошибка сети: " + e);
+            tg.MainButton.hideProgress();
+        }
+    }
+
+    // Слушаем ручной ввод адреса (опционально можно прикрутить поиск)
+    document.getElementById('address-input').addEventListener('input', (e) => {
+        selectedAddress = e.target.value;
+    });
+
+</script>
+{% endblock %}
