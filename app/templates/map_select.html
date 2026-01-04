@@ -48,151 +48,178 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => history.back());
-
-    // Данные с сервера (из Python словаря в JS объект)
-    const initialOrderData = {{ order_data | tojson }};
+    // Ждем полной загрузки страницы
+    document.addEventListener('DOMContentLoaded', function() {
     
-    // Переменные состояния
-    let currentMarker = null;
-    let selectedCoords = null;
-    let selectedAddress = "";
-
-    // 1. Инициализация карты (центр - Москва или Бишкек, можно менять)
-    // По хорошему надо запрашивать геопозицию юзера, но пока возьмем дефолт
-    const map = L.map('map').setView([55.7558, 37.6173], 13);
-
-    // Добавляем слой карты (OpenStreetMap)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OSM'
-    }).addTo(map);
-
-    // Попробуем получить реальную локацию юзера
-    map.locate({setView: true, maxZoom: 16});
+        const tg = window.Telegram.WebApp;
+        tg.expand();
     
-    // Событие: Локация найдена
-    map.on('locationfound', function(e) {
-        setPin(e.latlng); // Ставим пин туда, где юзер
-    });
-
-
-    // 2. Логика клика по карте
-    map.on('click', function(e) {
-        setPin(e.latlng);
-    });
-
-    // Функция установки булавки
-    function setPin(latlng) {
-        // Удаляем старый маркер
-        if (currentMarker) map.removeLayer(currentMarker);
         
-        // Ставим новый
-        currentMarker = L.marker(latlng).addTo(map);
-        selectedCoords = latlng;
-        
-        // Анимация карты к точке
-        map.panTo(latlng);
+        // Кнопка "Назад"
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => history.back());
 
-        // "Магия": Получаем адрес по координатам (Nominatim API)
-        fetchAddress(latlng.lat, latlng.lng);
+        // Данные с сервера
+        const initialOrderData = {{ order_data | tojson }};
+    
+        // Переменные
+        let currentMarker = null;
+        let selectedCoords = null;
+        let selectedAddress = "";
         
-        // Показываем кнопку "Подтвердить адрес"
-        tg.MainButton.setText("Выбрать этот адрес");
-        tg.MainButton.show();
-        
-        // Скрываем пока сводку, если она была открыта
-        hideSummary();
-    }
 
-    // 3. Обратное геокодирование (Координаты -> Текст)
-    async function fetchAddress(lat, lng) {
-        const input = document.getElementById('address-input');
-        input.value = "Загрузка адреса...";
+        // === 1. КАРТА ===
+        // Инициализируем карту ТОЛЬКО внутри этой функции
+        const map = L.map('map').setView([55.7558, 37.6173], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OSM',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Исправление бага: иногда карта рендерится серым, если контейнер менял размер
+        // Даем ей секунду "продышаться"
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+
+        // Запрашиваем локацию
+        map.locate({setView: true, maxZoom: 16});
         
-        try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-            const data = await response.json();
+        // События карты
+        map.on('locationfound', function(e) {
+            setPin(e.latlng);
+        });
+        
+        // Если локацию запретили или ошибка - просто молчим (остаемся на дефолтных координатах)
+        map.on('locationerror', function(e) {
+            console.log("Геолокация недоступна:", e.message);
+        });
+
+        map.on('click', function(e) {
+            setPin(e.latlng);
+        });
+
+        // === 2. ФУНКЦИИ ===
+
+        function setPin(latlng) {
+            if (currentMarker) map.removeLayer(currentMarker);
             
-            // Берем улицу и номер дома, или display_name целиком
-            const addr = data.address;
-            const shortAddr = (addr.road ? addr.road : '') + (addr.house_number ? ', ' + addr.house_number : '');
+            currentMarker = L.marker(latlng).addTo(map);
+            selectedCoords = latlng;
             
-            selectedAddress = shortAddr || data.display_name;
-            input.value = selectedAddress;
-        } catch (e) {
-            input.value = "Не удалось определить адрес";
-            selectedAddress = "Координаты: " + lat.toFixed(4) + ", " + lng.toFixed(4);
+            map.panTo(latlng); // Плавный скролл к точке
+
+            fetchAddress(latlng.lat, latlng.lng);
+            
+            tg.MainButton.setText("Выбрать этот адрес");
+            tg.MainButton.show();
+            hideSummary();
         }
-    }
-    
-    // 4. Логика Главной Кнопки
-    tg.MainButton.onClick(() => {
-        const summaryCard = document.getElementById('summary-card');
-        
-        // Если кнопка говорит "Выбрать адрес" -> Показываем итог
-        if (tg.MainButton.text === "Выбрать этот адрес") {
-            showSummary();
-        } 
-        // Если кнопка говорит "Подтвердить заказ" -> Отправляем данные
-        else if (tg.MainButton.text === "✅ Подтвердить заказ") {
-            sendOrder();
+
+        async function fetchAddress(lat, lng) {
+            const input = document.getElementById('address-input');
+            input.value = "Загрузка адреса..."; // Показываем юзеру, что работаем
+            
+            try {
+                // Используем хедер Accept-Language, чтобы адрес приходил на русском (если OSM поддерживает)
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ru`);
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                // Формируем красивый адрес
+                let shortAddr = data.display_name; // Дефолт
+                
+                // Пытаемся сделать короткий (Улица, Дом)
+                if (data.address) {
+                    const road = data.address.road || data.address.street || "";
+                    const number = data.address.house_number || "";
+                    if (road) {
+                        shortAddr = `${road}${number ? ', ' + number : ''}`;
+                    }
+                }
+                
+                selectedAddress = shortAddr;
+                input.value = selectedAddress;
+
+            } catch (e) {
+                console.error(e);
+                input.value = "Адрес не найден";
+                selectedAddress = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            }
         }
-    });
-
-    function showSummary() {
-        document.getElementById('final-address').innerText = selectedAddress;
-        document.getElementById('summary-card').classList.remove('translate-y-full'); // Выезжает снизу
-        tg.MainButton.setText("✅ Подтвердить заказ");
-        tg.MainButton.color = "#34d399"; // Зеленый цвет (по желанию)
-    }
-
-    function hideSummary() {
-        document.getElementById('summary-card').classList.add('translate-y-full');
-        tg.MainButton.setText("Выбрать этот адрес");
-        tg.MainButton.color = tg.themeParams.button_color; // Вернуть стандартный цвет
-    }
-    
-    // 5. Отправка данных на бэкенд
-    async function sendOrder() {
-        tg.MainButton.showProgress(); // Крутилка загрузки
         
-        const payload = {
-            ...initialOrderData, // id услуги, время, цена...
-            address: selectedAddress,
-            latitude: selectedCoords.lat,
-            longitude: selectedCoords.lng
-        };
+        // === 3. UI ===
 
-        try {
-            const response = await fetch('/api/orders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+        tg.MainButton.onClick(() => {
+            // Важно: проверяем text, так как кнопка одна на два действия
+            if (tg.MainButton.text === "Выбрать этот адрес") {
+                showSummary();
+            } 
+            else if (tg.MainButton.text === "✅ Подтвердить заказ") {
+                sendOrder();
+            }
+        });
 
-            if (response.ok) {
-                tg.MainButton.hideProgress();
-                tg.close(); // Закрываем WebApp
-                // Или можно отправить alert("Заказ создан!");
-            } else {
-                alert("Ошибка сервера!");
+        function showSummary() {
+            const summary = document.getElementById('summary-card');
+            const addrText = document.getElementById('final-address');
+            
+            if(addrText) addrText.innerText = selectedAddress;
+            if(summary) summary.classList.remove('translate-y-full');
+            
+            tg.MainButton.setText("✅ Подтвердить заказ");
+            tg.MainButton.color = "#34d399"; 
+        }
+
+        function hideSummary() {
+            const summary = document.getElementById('summary-card');
+            if(summary) summary.classList.add('translate-y-full');
+            
+            tg.MainButton.setText("Выбрать этот адрес");
+            // Возвращаем стандартный цвет кнопки телеграма
+            tg.MainButton.color = tg.themeParams.button_color || "#2481cc"; 
+        }
+        
+        async function sendOrder() {
+            tg.MainButton.showProgress();
+            
+            const payload = {
+                ...initialOrderData,
+                address: selectedAddress,
+                latitude: selectedCoords.lat,
+                longitude: selectedCoords.lng
+            };
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    tg.MainButton.hideProgress();
+                    tg.close();
+                } else {
+                    alert("Ошибка сервера!");
+                    tg.MainButton.hideProgress();
+                }
+            } catch (e) {
+                alert("Ошибка: " + e);
                 tg.MainButton.hideProgress();
             }
-        } catch (e) {
-            alert("Ошибка сети: " + e);
-            tg.MainButton.hideProgress();
         }
-    }
 
-    // Слушаем ручной ввод адреса (опционально можно прикрутить поиск)
-    document.getElementById('address-input').addEventListener('input', (e) => {
-        selectedAddress = e.target.value;
-    });
-
+        // Ручной ввод
+        const addrInput = document.getElementById('address-input');
+        if (addrInput) {
+            addrInput.addEventListener('input', (e) => {
+                selectedAddress = e.target.value;
+            });
+        }
+    })
 </script>
 {% endblock %}
