@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "UstaBar"
     DATABASE_URL: str
     BOT_TOKEN: str
+    BASE_URL: str = "https://ustabar.pp.ua" 
+    WEBHOOK_PATH: str = "/webhook/telegram"
     # POSTGRES_SERVER: str = "db"
     # POSTGRES_USER: str = "user"
     # POSTGRES_PASSWORD: str = "password"
