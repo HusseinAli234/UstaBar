@@ -58,6 +58,8 @@
 
 {% block scripts %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
     const tg = window.Telegram.WebApp;
     tg.expand();
     tg.BackButton.show(); // Показываем кнопку "Назад" (стрелочка сверху)
@@ -102,6 +104,7 @@
         // ВАРИАНТ Б (Продвинутый): Можно сохранить во временное хранилище браузера
         // sessionStorage.setItem('order_draft', JSON.stringify(data));
         // window.location.href = `/webapp/map-select`;
+    });
     });
 </script>
 {% endblock %}
