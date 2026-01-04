@@ -6,6 +6,12 @@ from aiogram.types import Message, CallbackQuery, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from app.core.database import get_async_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+from app.models.user import User
+from sqlalchemy import select
+from app.core.config import settings
 
 # Создаем роутер
 user_router = Router()
@@ -46,7 +52,8 @@ async def cmd_start(message: Message, state: FSMContext):
     # Создаем клавиатуру с Web App (Ваш сайт с картой)
     # В url укажите ваш https адрес (ngrok или реальный домен)
     builder = InlineKeyboardBuilder()
-    builder.button(text="🗺 Открыть карту", web_app=WebAppInfo(url="https://your-domain.com/map"))
+    webapp_url = f"{settings.BASE_URL}/webapp"
+    builder.button(text="🗺 Открыть карту", web_app=WebAppInfo(url=webapp_url))
     builder.button(text="📝 Ввести данные", callback_data="input_data")
     builder.adjust(1)
 
@@ -76,27 +83,47 @@ async def ask_info(callback: CallbackQuery, state: FSMContext):
 
 
 # --- ЭФФЕКТ 2: УДАЛЕНИЕ (При вводе текста) ---
-@user_router.message(UserState.waiting_for_info)
-async def process_info(message: Message, state: FSMContext, bot: Bot):
-    # Вызываем нашу функцию очистки:
-    # Она удалит сообщение пользователя с именем и вопрос бота "Введите имя"
+
+
+@user_router.message(UserState.waiting_for_info, F.text)
+async def process_info(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    session: AsyncSession = Depends(get_async_session),
+):
     await clean_chat(message, state, bot)
-    
+
+    tg_id = message.from_user.id
+    username = message.from_user.username
     name = message.text
-    
-    # Формируем ответ (новое красивое меню)
-    builder = InlineKeyboardBuilder()
-    builder.button(text="🗺 Теперь на карту", web_app=WebAppInfo(url="https://your-domain.com/map"))
-    
-    msg = await message.answer(
-        text=f"Отлично, {name}! Данные сохранены.\nТеперь можно открыть карту.",
-        reply_markup=builder.as_markup()
+
+    result = await session.execute(
+        select(User).where(User.tg_id == tg_id)
     )
-    
-    # Запоминаем ID нового сообщения, чтобы потом тоже его удалить при необходимости
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(
+            tg_id=tg_id,
+            username=username,
+            name=name,
+            hashed_password="telegram_auth"
+        )
+        session.add(user)
+    else:
+        user.name = name
+        user.username = username
+
+    await session.commit()
+
+    msg = await message.answer(
+        text=f"Отлично, {name}! Данные сохранены.",
+    )
+
     await state.update_data(last_msg_id=msg.message_id)
-    # Возвращаем состояние
     await state.set_state(UserState.main_menu)
+
 
 
 # Кнопка "Назад"
