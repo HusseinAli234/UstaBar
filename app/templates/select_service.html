@@ -41,54 +41,59 @@
 
 {% block scripts %}
 <script>
-    // 1. Инициализация Телеграма
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    // Элементы
-    const select = document.getElementById('service-select');
-    const preview = document.getElementById('result-preview');
-
-    // Настраиваем Главную Кнопку (по умолчанию скрыта)
-    tg.MainButton.setText("Далее");
-    tg.MainButton.hide();
-    select.addEventListener('input', onSelect);
-    select.addEventListener('change', onSelect);
-
-    function onSelect() {
-    const selectedText = select.options[select.selectedIndex].text;
-    const selectedValue = select.value;
-
-    preview.textContent = `Вы выбрали: ${selectedText}`;
-    preview.classList.remove('opacity-0');
-
-    if (selectedValue) {
-        tg.MainButton.show();
-    }
-}
-
-    // 2. Слушаем изменения в списке
-    // select.addEventListener('change', function() {
-    //     const selectedText = select.options[select.selectedIndex].text;
-    //     const selectedValue = select.value;
-
-    //     // Показываем превью
-    //     preview.textContent = `Вы выбрали: ${selectedText}`;
-    //     preview.classList.remove('opacity-0');
-
-    //     // Показываем кнопку "Далее" в интерфейсе Телеграма
-    //     if (selectedValue) {
-    //         tg.MainButton.show();
-    //     }
-    // });
-
-    // 3. Обработка нажатия на кнопку "Далее"
-    tg.MainButton.onClick(function() {
-        const value = select.value;
-    
-    window.location.href = `/webapp/order-details?service_id=${value}`;
+    // Ждем полной загрузки HTML страницы
+    document.addEventListener('DOMContentLoaded', function() {
         
-    });
+        // 1. Инициализация Телеграма с проверкой
+        let tg = window.Telegram.WebApp;
+        tg.expand();
 
+        // Элементы
+        const select = document.getElementById('service-select');
+        const preview = document.getElementById('result-preview');
+
+        // Логирование для отладки (смотрите в F12 -> Console)
+        console.log("Скрипт запущен, элементы найдены:", select, preview);
+
+        // Настраиваем Главную Кнопку
+        tg.MainButton.setText("Далее");
+        tg.MainButton.hide();
+
+        // Функция обработки выбора
+        function onSelect() {
+            // Защита: если ничего не выбрано
+            if (select.selectedIndex === -1) return;
+
+            const selectedText = select.options[select.selectedIndex].text;
+            const selectedValue = select.value;
+            
+            console.log("Выбрано:", selectedText, selectedValue); // Для отладки
+
+            // Обновляем текст на странице
+            preview.textContent = `Вы выбрали: ${selectedText}`;
+            preview.classList.remove('opacity-0');
+
+            // Показываем кнопку
+            if (selectedValue) {
+                // Если мы в Telegram - показываем нативную кнопку
+                if (tg.MainButton.isVisible === false) { 
+                    tg.MainButton.show();
+                }
+            }
+        }
+
+        // Слушаем события (change лучше всего подходит для select)
+        select.addEventListener('change', onSelect);
+        
+        // На всякий случай input (для некоторых мобильных браузеров)
+        select.addEventListener('input', onSelect);
+
+        // Обработка клика по MainButton
+        tg.MainButton.onClick(function() {
+            const value = select.value;
+            // Переход
+            window.location.href = `/webapp/order-details?service_id=${value}`;
+        });
+    });
 </script>
 {% endblock %}
