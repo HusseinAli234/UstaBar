@@ -59,52 +59,62 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.BackButton.show(); // Показываем кнопку "Назад" (стрелочка сверху)
-
-    // Если нажали "Назад" - возвращаемся к выбору услуги
-    tg.BackButton.onClick(() => {
-        history.back();
-    });
-
-    const mainBtn = tg.MainButton;
-    mainBtn.setText("Указать адрес"); // Текст следующего шага
-    mainBtn.hide(); // Сначала скрыта
-
-    // Функция проверки: заполнены ли обязательные поля?
-    function validateForm() {
-        const duration = document.querySelector('input[name="duration"]:checked');
-        const price = document.getElementById('price').value;
-
-        // Если выбрано время И введена цена - показываем кнопку
-        if (duration && price && price.length > 0) {
-            mainBtn.show();
-        } else {
-            mainBtn.hide();
-        }
-    }
-
-    // Обработка клика "Указать адрес"
-    mainBtn.onClick(() => {
-        // Собираем данные
-        const data = {
-            service_id: "{{ service_id }}", // Пришло с сервера (Jinja)
-            duration: document.querySelector('input[name="duration"]:checked').value,
-            price: document.getElementById('price').value,
-            comment: document.getElementById('comment').value
-        };
-
-        // ВАРИАНТ А: Переход на страницу карты через URL параметры (простой)
-        // Мы "тащим" все данные в URL. Для MVP это ок.
-        const params = new URLSearchParams(data).toString();
-        window.location.href = `/webapp/map-select?${params}`;
         
-        // ВАРИАНТ Б (Продвинутый): Можно сохранить во временное хранилище браузера
-        // sessionStorage.setItem('order_draft', JSON.stringify(data));
-        // window.location.href = `/webapp/map-select`;
-    });
+        // 1. Инициализация
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.BackButton.show();
+
+        tg.BackButton.onClick(() => {
+            history.back();
+        });
+
+        const mainBtn = tg.MainButton;
+        mainBtn.setText("Указать адрес");
+        mainBtn.hide();
+
+        // 2. Находим элементы формы
+        const priceInput = document.getElementById('price');
+        const durationInputs = document.querySelectorAll('input[name="duration"]'); // Все радио кнопки
+
+        // 3. Функция валидации
+        function validateForm() {
+            // Ищем выбранную радио-кнопку
+            const duration = document.querySelector('input[name="duration"]:checked');
+            const price = priceInput.value;
+
+            console.log("Проверка:", duration, price); // Для отладки в консоли
+
+            if (duration && price && price.trim().length > 0) {
+                mainBtn.show();
+            } else {
+                mainBtn.hide();
+            }
+        }
+
+        // 4. НАЗНАЧАЕМ СЛУШАТЕЛИ СОБЫТИЙ ЧЕРЕЗ JS
+        // (вместо oninput="" в HTML)
+        
+        // Слушаем ввод цены
+        priceInput.addEventListener('input', validateForm);
+        
+        // Слушаем все радио-кнопки времени
+        durationInputs.forEach(input => {
+            input.addEventListener('change', validateForm);
+        });
+
+        // 5. Обработка клика "Указать адрес"
+        mainBtn.onClick(() => {
+            const data = {
+                service_id: "{{ service_id }}",
+                duration: document.querySelector('input[name="duration"]:checked').value,
+                price: priceInput.value,
+                comment: document.getElementById('comment').value
+            };
+
+            const params = new URLSearchParams(data).toString();
+            window.location.href = `/webapp/map-select?${params}`;
+        });
     });
 </script>
 {% endblock %}
