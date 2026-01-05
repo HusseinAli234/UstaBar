@@ -18,10 +18,12 @@ class User(Base):
 
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     surname: Mapped[str | None] = mapped_column(String, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String,nullable=True)
+    service_type: Mapped[str | None] = mapped_column(String,nullable=True)
+    role: Mapped[str | None] = mapped_column(String,nullable=True)
 
     hashed_password: Mapped[str] = mapped_column(
         String(1024), nullable=False
     )
-
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
