@@ -34,7 +34,6 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
 
     const tg = window.Telegram.WebApp;
     tg.expand();
@@ -142,6 +141,6 @@
 
     // Загружаем при старте
     document.addEventListener('DOMContentLoaded', loadOrders);
-})
+
 </script>
 {% endblock %}
