@@ -94,3 +94,8 @@ async def map_select_page(
             }
         }
     )
+
+
+@router.get("/webapp/orders")
+async def orders_list_page(request: Request):
+    return templates.TemplateResponse("orders/list.html", {"request": request})
