@@ -38,116 +38,73 @@
     tg.expand();
     tg.BackButton.hide();
 
-    // Словарик иконок и цветов
-    const SERVICE_ICONS = {
-        'cleaning': '🧹', 'electrician': '⚡', 'plumber': '🔧', 'nanny': '🧸', 'other': '📦'
-    };
-    const STATUS_COLORS = {
-        'searching': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-        'in_progress': 'bg-blue-100 text-blue-800 border-blue-200',
-        'completed': 'bg-green-100 text-green-800 border-green-200',
-        'canceled': 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-    const STATUS_NAMES = {
-        'searching': 'Поиск мастера', 'in_progress': 'В работе',
-        'completed': 'Завершен', 'canceled': 'Отменен'
-    };
+    // Словари для красоты
+    const SERVICE_ICONS = {'cleaning': '🧹', 'electrician': '⚡', 'plumber': '🔧', 'nanny': '🧸', 'other': '📦'};
+    const STATUS_COLORS = {'searching': 'bg-yellow-100 text-yellow-800', 'in_progress': 'bg-blue-100 text-blue-800', 'completed': 'bg-green-100 text-green-800', 'canceled': 'bg-gray-100 text-gray-800'};
+    const STATUS_NAMES = {'searching': 'Поиск', 'in_progress': 'В работе', 'completed': 'Завершен', 'canceled': 'Отменен'};
 
-    // 1. Делаем функцию ГЛОБАЛЬНОЙ (вне всяких скобок)
     async function loadOrders() {
         const container = document.getElementById('orders-container');
-        const emptyState = document.getElementById('empty-state');
         
-        try {
-            // Рисуем скелетон (загрузку) пока ждем
-            container.innerHTML = `
-                <div class="animate-pulse space-y-3">
-                    <div class="h-24 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                </div>`;
+        // 1. Показываем алерт для проверки (уберите потом)
+        // alert("Скрипт начал загрузку!"); 
 
-            const response = await fetch('/api/orders/my', {
+        try {
+            // Рисуем загрузку
+            container.innerHTML = `<div class="animate-pulse space-y-3"><div class="h-24 bg-gray-200 dark:bg-gray-800 rounded-xl"></div></div>`;
+
+            // 2. Добавляем ?v=... чтобы браузер не брал данные из кеша
+            const response = await fetch('/api/orders/my?v=' + Date.now(), {
                 headers: { 'Authorization': tg.initData }
             });
 
-            if (!response.ok) throw new Error('Ошибка сервера: ' + response.status);
+            if (!response.ok) throw new Error('Ошибка: ' + response.status);
             
             const orders = await response.json();
-            console.log("Данные с сервера:", orders); // Смотрим в Eruda
-
-            container.innerHTML = ''; // Очищаем скелетон
+            container.innerHTML = ''; // Убираем загрузку
 
             if (orders.length === 0) {
-                emptyState.classList.remove('hidden');
-                emptyState.classList.add('flex');
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('empty-state').classList.add('flex');
                 return;
-            } else {
-                emptyState.classList.add('hidden');
-                emptyState.classList.remove('flex');
             }
 
             orders.forEach(order => {
-                // Защита от undefined полей
                 const sType = order.service_type || 'other';
-                const sStatus = order.status || 'searching';
+                const icon = SERVICE_ICONS[sType] || '📦';
+                const serviceName = sType.charAt(0).toUpperCase() + sType.slice(1);
+                const statusName = STATUS_NAMES[order.status] || order.status;
+                const price = order.price + ' ₽';
                 
-                const icon = SERVICE_ICONS[sType] || '🔨';
-                const serviceName = (sType.charAt(0).toUpperCase() + sType.slice(1)); 
-                const statusClass = STATUS_COLORS[sStatus] || STATUS_COLORS['searching'];
-                const statusName = STATUS_NAMES[sStatus] || sStatus;
-                
-                // Форматируем цену и дату
-                const price = order.price ? `${order.price} ₽` : 'Договорная';
-                const address = order.address || 'Адрес скрыт';
-                
-                // Попытка распарсить дату
-                let dateStr = '';
-                if (order.created_at) {
-                    dateStr = new Date(order.created_at).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
-                }
-
+                // Рендер карточки
                 const card = document.createElement('div');
-                card.className = "bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.98] transition-transform cursor-pointer";
-                
+                card.className = "bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-3";
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-gray-700 flex items-center justify-center text-xl">
-                                ${icon}
-                            </div>
+                            <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-gray-700 flex items-center justify-center text-xl">${icon}</div>
                             <div>
-                                <h3 class="font-bold text-tg_text text-lg leading-tight">${serviceName}</h3>
-                                <p class="text-xs text-gray-400">${dateStr}</p>
+                                <h3 class="font-bold text-tg_text text-lg">${serviceName}</h3>
+                                <p class="text-xs text-gray-400">#${order.id}</p>
                             </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusClass}">
-                            ${statusName}
-                        </span>
+                        <span class="px-2 py-1 rounded-lg text-xs font-bold ${STATUS_COLORS[order.status]}">${statusName}</span>
                     </div>
-                    
-                    <div class="flex justify-between items-end mt-3">
-                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
-                            ${address}
-                        </div>
-                        <div class="font-bold text-lg text-tg_text">
-                            ${price}
-                        </div>
+                    <div class="flex justify-between items-end mt-2">
+                        <div class="text-sm text-gray-500 truncate w-1/2">${order.address}</div>
+                        <div class="font-bold text-lg text-tg_text">${price}</div>
                     </div>
                 `;
-                
-                // Клик - пока просто алерт
-                card.onclick = () => tg.showAlert(`Заказ #${order.id}`);
                 container.appendChild(card);
             });
 
         } catch (e) {
-            console.error(e);
-            container.innerHTML = `<div class="text-red-500 text-center p-4">Ошибка: ${e.message}</div>`;
+            // Если ошибка - покажем её прямо на экране
+            container.innerHTML = `<div class="p-4 bg-red-500 text-white rounded-xl">Ошибка: ${e.message}</div>`;
         }
     }
 
-    // 2. Запускаем загрузку, когда страница готова
     document.addEventListener('DOMContentLoaded', loadOrders);
-
 </script>
 <script src="//cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
