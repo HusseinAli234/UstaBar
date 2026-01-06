@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Мои заказы{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full pt-4 pb-20"> <div class="px-4 mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-tg_text">Мои заказы</h1>
+        <button onclick="loadOrders()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-blue-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>
+    </div>
+
+    <div id="orders-container" class="space-y-3 px-4 overflow-y-auto custom-scrollbar">
+        <div class="animate-pulse space-y-3">
+            <div class="h-24 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+            <div class="h-24 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+        </div>
+    </div>
+
+    <div id="empty-state" class="hidden flex-col items-center justify-center h-64 text-center">
+        <div class="text-6xl mb-4">📦</div>
+        <h3 class="text-lg font-medium text-tg_text">Заказов пока нет</h3>
+        <p class="text-gray-500 text-sm mt-1">Создайте свой первый заказ прямо сейчас</p>
+    </div>
+
+</div>
+
+<div class="fixed bottom-4 right-4 z-50">
+    <a href="/webapp/select-service" class="flex items-center justify-center w-14 h-14 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.BackButton.hide(); // На главной странице заказов кнопка назад не нужна
+
+    // Словарик для красивых названий и иконок
+    const SERVICE_ICONS = {
+        'cleaning': '🧹',
+        'electrician': '⚡',
+        'plumber': '🔧',
+        'nanny': '🧸',
+        'other': '📦'
+    };
+    
+    const STATUS_COLORS = {
+        'searching': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        'in_progress': 'bg-blue-100 text-blue-800 border-blue-200',
+        'completed': 'bg-green-100 text-green-800 border-green-200',
+        'canceled': 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+
+    const STATUS_NAMES = {
+        'searching': 'Поиск мастера',
+        'in_progress': 'В работе',
+        'completed': 'Завершен',
+        'canceled': 'Отменен'
+    };
+
+    async function loadOrders() {
+        const container = document.getElementById('orders-container');
+        
+        try {
+            const response = await fetch('/api/orders/my', {
+                headers: {
+                    'Authorization': tg.initData
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to load');
+            
+            const orders = await response.json();
+            container.innerHTML = ''; // Очистить скелетон
+
+            if (orders.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('empty-state').classList.add('flex');
+                return;
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('flex');
+            }
+
+            orders.forEach(order => {
+                const icon = SERVICE_ICONS[order.service_type] || '🔨';
+                // Делаем первую букву заглавной
+                const serviceName = (order.service_type.charAt(0).toUpperCase() + order.service_type.slice(1)); 
+                const statusClass = STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800';
+                const statusName = STATUS_NAMES[order.status] || order.status;
+                const date = new Date(order.created_at).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
+
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 active:scale-[0.98] transition-transform cursor-pointer";
+                
+                // HTML карточки
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-gray-700 flex items-center justify-center text-xl">
+                                ${icon}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-tg_text text-lg leading-tight">${serviceName}</h3>
+                                <p class="text-xs text-gray-400">${date}</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusClass}">
+                            ${statusName}
+                        </span>
+                    </div>
+                    
+                    <div class="flex justify-between items-end mt-3">
+                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
+                            ${order.address}
+                        </div>
+                        <div class="font-bold text-lg text-tg_text">
+                            ${order.price} ₽
+                        </div>
+                    </div>
+                `;
+                
+                // Клик по карточке (пока просто лог, потом сделаем переход в детали)
+                card.onclick = () => {
+                   // window.location.href = /webapp/orders/${order.id}; // На будущее
+                   tg.showAlert(`Заказ #${order.id} выбран`);
+                };
+
+                container.appendChild(card);
+            });
+
+        } catch (e) {
+            container.innerHTML = `<div class="text-red-500 text-center p-4">Ошибка загрузки: ${e.message}</div>`;
+        }
+    }
+
+    // Загружаем при старте
+    document.addEventListener('DOMContentLoaded', loadOrders);
+</script>
+{% endblock %}

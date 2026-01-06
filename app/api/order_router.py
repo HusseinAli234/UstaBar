@@ -12,6 +12,11 @@ from app.schemas.order import OrderCreate
 from app.core.security_tg import validate_telegram_data # Ваша функция проверки хеша
 from app.core.config import settings
 
+
+from sqlalchemy import desc
+
+
+
 router = APIRouter(tags=["Orders"])
 
 @router.post("/api/orders")
@@ -62,3 +67,30 @@ async def create_order(
     await session.commit()
     
     return {"status": "ok", "order_id": new_order.id}
+
+
+
+
+
+@router.get("/api/orders/my")
+async def get_my_orders(
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    # 1. Валидация
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # 2. Ищем юзера
+    result = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+    user = result.scalar_one_or_none()
+    if not user:
+        return []
+
+    # 3. Достаем заказы (новые сверху)
+    stmt = select(Order).where(Order.customer_id == user.id).order_by(desc(Order.created_at))
+    result = await session.execute(stmt)
+    orders = result.scalars().all()
+
+    return orders

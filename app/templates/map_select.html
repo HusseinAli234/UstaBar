@@ -207,7 +207,10 @@
 
             if (response.ok) {
                 tg.MainButton.hideProgress();
-                tg.close(); // Закрываем окно, заказ создан!
+                
+                // БЫЛО: tg.close();
+                // СТАЛО:
+                window.location.href = "/webapp/orders"; // Переход к списку
             } else {
                 // Если сервер вернул ошибку (401, 500...)
                 const err = await response.json();
