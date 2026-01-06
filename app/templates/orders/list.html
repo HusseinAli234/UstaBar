@@ -34,6 +34,7 @@
 
 {% block scripts %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
 
     const tg = window.Telegram.WebApp;
     tg.expand();
@@ -75,6 +76,7 @@
             if (!response.ok) throw new Error('Failed to load');
             
             const orders = await response.json();
+            console.log("Пришли заказы:", orders); // <--- Добавьте это для проверки
             container.innerHTML = ''; // Очистить скелетон
 
             if (orders.length === 0) {
@@ -140,5 +142,6 @@
 
     // Загружаем при старте
     document.addEventListener('DOMContentLoaded', loadOrders);
+})
 </script>
 {% endblock %}
