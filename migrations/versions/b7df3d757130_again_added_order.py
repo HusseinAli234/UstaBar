@@ -38,7 +38,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['customer_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('idx_orders_location', 'orders', ['location'], unique=False, postgresql_using='gist')
+    # op.create_index('idx_orders_location', 'orders', ['location'], unique=False, postgresql_using='gist')
     op.create_index(op.f('ix_orders_service_type'), 'orders', ['service_type'], unique=False)
     op.create_table('order_responses',
     sa.Column('id', sa.Integer(), nullable=False),
