@@ -8,7 +8,7 @@ from shapely.geometry import Point
 from app.core.database import get_async_session
 from app.models.user import User
 from app.models.order import Order, OrderStatus
-from app.schemas.order import OrderCreate
+from app.schemas.order import OrderCreate,OrderRead
 from app.core.security_tg import validate_telegram_data # Ваша функция проверки хеша
 from app.core.config import settings
 
@@ -72,7 +72,7 @@ async def create_order(
 
 
 
-@router.get("/api/orders/my")
+@router.get("/api/orders/my", response_model=list[OrderRead])
 async def get_my_orders(
     authorization: str = Header(..., alias="Authorization"),
     session: AsyncSession = Depends(get_async_session)
