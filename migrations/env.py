@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.database import Base 
 # 2. Обязательно импортируем сами модели, чтобы они зарегистрировались в Base.metadata
-from app.models.user import User 
+from app.models.user import User,WorkerProfile
+from app.models.order import Order,OrderResponse,OrderStatus
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

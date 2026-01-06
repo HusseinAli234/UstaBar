@@ -183,36 +183,42 @@
             tg.MainButton.color = tg.themeParams.button_color || "#2481cc"; 
         }
         
-        async function sendOrder() {
-            tg.MainButton.showProgress();
-            
-            const payload = {
-                ...initialOrderData,
-                address: selectedAddress,
-                latitude: selectedCoords.lat,
-                longitude: selectedCoords.lng
-            };
+      async function sendOrder() {
+        tg.MainButton.showProgress();
+        
+        const payload = {
+            ...initialOrderData,
+            address: selectedAddress,
+            latitude: selectedCoords.lat,
+            longitude: selectedCoords.lng
+        };
 
-            try {
-                const response = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+        try {
+            // ОТПРАВЛЯЕМ ЗАПРОС
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // ВАЖНО: Передаем данные авторизации в заголовке!
+                    'Authorization': window.Telegram.WebApp.initData
+                },
+                body: JSON.stringify(payload)
+            });
 
-                if (response.ok) {
-                    tg.MainButton.hideProgress();
-                    tg.close();
-                } else {
-                    alert("Ошибка сервера!");
-                    tg.MainButton.hideProgress();
-                }
-            } catch (e) {
-                alert("Ошибка: " + e);
+            if (response.ok) {
+                tg.MainButton.hideProgress();
+                tg.close(); // Закрываем окно, заказ создан!
+            } else {
+                // Если сервер вернул ошибку (401, 500...)
+                const err = await response.json();
+                alert("Ошибка: " + (err.detail || "Неизвестная ошибка"));
                 tg.MainButton.hideProgress();
             }
+        } catch (e) {
+            alert("Ошибка сети: " + e);
+            tg.MainButton.hideProgress();
         }
-
+    }
         // Ручной ввод
         const addrInput = document.getElementById('address-input');
         if (addrInput) {
