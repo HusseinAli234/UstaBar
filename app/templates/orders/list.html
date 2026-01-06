@@ -47,7 +47,7 @@
         const container = document.getElementById('orders-container');
         
         // 1. Показываем алерт для проверки (уберите потом)
-        // alert("Скрипт начал загрузку!"); 
+        alert("Скрипт начал загрузку!"); 
 
         try {
             // Рисуем загрузку
@@ -61,6 +61,7 @@
             if (!response.ok) throw new Error('Ошибка: ' + response.status);
             
             const orders = await response.json();
+            console.log(orders)
             container.innerHTML = ''; // Убираем загрузку
 
             if (orders.length === 0) {
