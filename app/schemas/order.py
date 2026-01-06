@@ -1,5 +1,9 @@
 from pydantic import BaseModel
 from typing import Optional
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+from app.models.order import OrderStatus
 
 class OrderCreate(BaseModel):
     service_id: str
@@ -10,3 +14,17 @@ class OrderCreate(BaseModel):
     latitude: float
     longitude: float
     photos: Optional[str] = None # Приходит строка "img1.jpg,img2.jpg"
+
+
+class OrderRead(BaseModel):
+    id: int
+    service_type: str
+    price: int
+    status: OrderStatus # Pydantic сам превратит Enum в строку
+    address: str
+    created_at: datetime
+    
+    
+    class Config:
+        # Эта настройка разрешает Pydantic читать данные из ORM-моделей
+        from_attributes = True
