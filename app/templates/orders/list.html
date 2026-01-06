@@ -34,6 +34,8 @@
 
 {% block scripts %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
     const tg = window.Telegram.WebApp;
     tg.expand();
     tg.BackButton.hide();
@@ -105,7 +107,10 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', loadOrders);
+    loadOrders()
+});
+    
+
 </script>
 <script src="//cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
