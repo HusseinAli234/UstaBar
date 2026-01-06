@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.core.database import async_session_maker 
 from app.models.user import User
 from app.core.config import settings
+import time
 
 user_router = Router()
 
@@ -46,9 +47,10 @@ async def show_main_menu(message: Message, state: FSMContext, user: User):
     
     builder = InlineKeyboardBuilder()
     
-    # Ссылки на WebApp страницы
-    create_order_url = f"{settings.BASE_URL}/webapp/select-service" # Создание
-    my_orders_url = f"{settings.BASE_URL}/webapp/orders"           # Список заказов
+    timestamp = int(time.time())
+    
+    create_order_url = f"{settings.BASE_URL}/webapp/select-service?v={timestamp}"
+    my_orders_url = f"{settings.BASE_URL}/webapp/orders?v={timestamp}"          # Список заказов
     
     if user.role == "worker":
         # --- МЕНЮ РАБОЧЕГО ---
