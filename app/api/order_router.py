@@ -4,7 +4,7 @@ from sqlalchemy import select
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
 from app.schemas.order import OrderReadDetail # <-- Импорт новой схемы
-
+from sqlalchemy.orm import selectinload
 from app.core.database import get_async_session
 from app.models.user import User
 from app.models.order import Order, OrderStatus
@@ -185,8 +185,11 @@ async def get_order_applications(
     # Важно: нужно загрузить relationship worker
     stmt = (
         select(OrderResponse)
-        .where(OrderResponse.order_id == order_id, OrderResponse.is_skipped == False)
-        .join(OrderResponse.worker) # Джойним таблицу юзеров
+        .where(
+            OrderResponse.order_id == order_id, 
+            OrderResponse.is_skipped == False
+        )
+        .options(selectinload(OrderResponse.worker)) 
     )
     
     result = await session.execute(stmt)
