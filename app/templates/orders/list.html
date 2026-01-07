@@ -45,7 +45,7 @@
     const STATUS_COLORS = {'searching': 'bg-yellow-100 text-yellow-800', 'in_progress': 'bg-blue-100 text-blue-800', 'completed': 'bg-green-100 text-green-800', 'canceled': 'bg-gray-100 text-gray-800'};
     const STATUS_NAMES = {'searching': 'Поиск', 'in_progress': 'В работе', 'completed': 'Завершен', 'canceled': 'Отменен'};
 
-    async function loadOrders() {
+      window.loadOrders = async function() {
         const container = document.getElementById('orders-container');
         
         // 1. Показываем алерт для проверки (уберите потом)
