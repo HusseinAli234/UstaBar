@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ #{{ order_id }}{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full pt-4 pb-4 px-4 space-y-4">
+    
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-tg_text">Заказ #{{ order_id }}</h1>
+        <div id="status-badge" class="px-3 py-1 rounded-lg text-sm font-bold bg-gray-200">...</div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
+        
+        <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+            <span class="text-gray-500">Услуга</span>
+            <span id="service-name" class="font-medium text-tg_text">...</span>
+        </div>
+        
+        <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+            <span class="text-gray-500">Время</span>
+            <span id="duration" class="font-medium text-tg_text">...</span>
+        </div>
+
+        <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+            <span class="text-gray-500">Бюджет</span>
+            <span id="price" class="font-bold text-green-600 text-lg">...</span>
+        </div>
+
+        <div>
+            <span class="text-gray-500 text-sm block mb-1">Адрес</span>
+            <span id="address" class="font-medium text-tg_text">...</span>
+        </div>
+    </div>
+
+    <div id="comment-block" class="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hidden">
+        <h3 class="text-sm text-gray-500 mb-1">Комментарий</h3>
+        <p id="comment-text" class="text-tg_text"></p>
+    </div>
+
+    <div id="photos-block" class="hidden">
+        <h3 class="text-sm text-gray-500 mb-2 pl-1">Фотографии</h3>
+        <div id="photos-grid" class="grid grid-cols-3 gap-2">
+            </div>
+    </div>
+
+    <button id="cancel-btn" class="w-full py-3 rounded-xl bg-red-50 text-red-600 font-medium hidden">
+        Отменить заказ
+    </button>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => window.history.back());
+
+    const orderId = {{ order_id }};
+    
+    // Словари (копируем из list.html или выносим в отдельный JS файл)
+    const STATUS_COLORS = {'searching': 'bg-yellow-100 text-yellow-800', 'in_progress': 'bg-blue-100 text-blue-800', 'completed': 'bg-green-100 text-green-800', 'canceled': 'bg-gray-100 text-gray-800'};
+    const STATUS_NAMES = {'searching': 'Поиск', 'in_progress': 'В работе', 'completed': 'Завершен', 'canceled': 'Отменен'};
+
+    async function loadDetails() {
+        try {
+            const response = await fetch(`/api/orders/${orderId}`, {
+                headers: { 'Authorization': tg.initData }
+            });
+            
+            if (!response.ok) throw new Error('Ошибка загрузки');
+            const order = await response.json();
+
+            // Заполняем данные
+            document.getElementById('service-name').innerText = order.service_type;
+            document.getElementById('duration').innerText = order.duration + ' ч.';
+            document.getElementById('price').innerText = order.price + ' ₽';
+            document.getElementById('address').innerText = order.address;
+
+            // Статус
+            const badge = document.getElementById('status-badge');
+            badge.className = `px-3 py-1 rounded-lg text-sm font-bold ${STATUS_COLORS[order.status]}`;
+            badge.innerText = STATUS_NAMES[order.status];
+
+            // Комментарий
+            if (order.comment) {
+                document.getElementById('comment-block').classList.remove('hidden');
+                document.getElementById('comment-text').innerText = order.comment;
+            }
+
+            // Фото
+            if (order.photos && order.photos.length > 0) {
+                document.getElementById('photos-block').classList.remove('hidden');
+                const grid = document.getElementById('photos-grid');
+                
+                order.photos.forEach(photoName => {
+                    // Формируем URL к MinIO (нужен настроенный роут или Nginx)
+                    // Пока предположим, что у вас есть роут /static/photos/
+                    const img = document.createElement('img');
+                    img.src = `/api/upload/file/${photoName}`; // Тут нужен будет роут для получения картинки
+                    img.className = "w-full h-24 object-cover rounded-lg bg-gray-200 cursor-pointer";
+                    
+                    // Увеличить фото при клике (через tg popup)
+                    img.onclick = () => tg.showPopup({title: 'Фото', message: 'Просмотр фото пока не готов', buttons: [{type: 'ok'}]});
+                    
+                    grid.appendChild(img);
+                });
+            }
+
+        } catch (e) {
+            tg.showAlert("Не удалось загрузить детали заказа");
+        }
+    }
+    });
+</script>
+{% endblock %}

@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
+from app.schemas.order import OrderReadDetail # <-- Импорт новой схемы
 
-# Импорты вашего проекта
 from app.core.database import get_async_session
 from app.models.user import User
 from app.models.order import Order, OrderStatus
@@ -94,3 +94,29 @@ async def get_my_orders(
     orders = result.scalars().all()
 
     return orders
+
+
+
+@router.get("/api/orders/{order_id}", response_model=OrderReadDetail)
+async def get_order_detail(
+    order_id: int,
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Ищем заказ, который принадлежит этому юзеру
+    # (Чтобы чужие заказы нельзя было смотреть перебором ID)
+    query = select(Order).join(User).where(
+        Order.id == order_id,
+        User.tg_id == user_data["id"]
+    )
+    result = await session.execute(query)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+        
+    return order
