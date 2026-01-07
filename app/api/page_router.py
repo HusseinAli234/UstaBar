@@ -107,3 +107,12 @@ async def order_view_page(request: Request, order_id: int):
         "orders/view.html", 
         {"request": request, "order_id": order_id}
     )
+
+@router.get("/webapp/worker/feed")
+async def worker_feed_page(request: Request):
+    response = templates.TemplateResponse("worker/feed.html", {"request": request})
+    
+    # Отключаем кеш, чтобы новые заказы появлялись сразу
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    
+    return response

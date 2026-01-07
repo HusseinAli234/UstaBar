@@ -8,6 +8,7 @@ from app.handlers.user import user_router
 from app.api.upload_router import router as upload_router
 from app.core.storage import init_storage
 from app.api.order_router import router as order_router
+from app.api.worker_router import router as worker_router
 
 # ...
 init_storage() # Создаем бакет при старте
@@ -46,7 +47,7 @@ app = FastAPI(
 
 
 app.include_router(order_router)
-
+app.include_router(worker_router)
 # Подключаем ваши обычные API роуты (auth и т.д.)
 # app.include_router(auth.router)
 app.include_router(page_router)
