@@ -3,41 +3,45 @@
 {% block title %}Поиск заказов{% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+<div class="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 relative">
     
     <div class="px-4 py-3 flex justify-between items-center z-10">
         <h1 class="text-xl font-bold text-tg_text">Лента заказов</h1>
-        <div class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
-            Ваша роль: Мастер
-        </div>
+        <div class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">Ваша роль: Мастер</div>
     </div>
 
     <div id="card-stack" class="flex-1 relative mx-4 mb-24 mt-2">
-        
         <div id="no-orders" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center">
             <div class="text-6xl mb-4">🎉</div>
             <h3 class="text-xl font-bold text-tg_text">Заказов пока нет</h3>
-            <p class="text-gray-500 mt-2 px-6">Вы просмотрели все доступные заказы в вашей категории. Загляните позже.</p>
-            <button onclick="location.reload()" class="mt-6 px-6 py-2 bg-blue-500 text-white rounded-xl">
-                Обновить
-            </button>
+            <button onclick="location.reload()" class="mt-6 px-6 py-2 bg-blue-500 text-white rounded-xl">Обновить</button>
         </div>
-
         <div id="loading" class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 animate-pulse">
             <div class="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
-            <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-            <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
         </div>
     </div>
 
     <div class="fixed bottom-6 left-0 right-0 px-8 flex justify-center space-x-6 z-20">
-        <button onclick="handleSkip()" class="w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-red-100 text-red-500 flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">
-            ❌
-        </button>
-        
-        <button onclick="handleApply()" class="w-16 h-16 rounded-full bg-blue-500 shadow-xl shadow-blue-500/30 text-white flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">
-            ✅
-        </button>
+        <button onclick="handleSkip()" class="w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-red-100 text-red-500 flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">❌</button>
+        <button onclick="openApplyModal()" class="w-16 h-16 rounded-full bg-blue-500 shadow-xl shadow-blue-500/30 text-white flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">✅</button>
+    </div>
+
+    <div id="apply-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl transform transition-transform translate-y-0">
+            
+            <h3 class="text-xl font-bold text-tg_text mb-4">Ваше предложение</h3>
+            
+            <label class="block text-sm text-gray-500 mb-1">Предложите цену (₽)</label>
+            <input id="input-price" type="number" class="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-lg font-bold text-tg_text focus:ring-2 focus:ring-blue-500 outline-none mb-4">
+            
+            <label class="block text-sm text-gray-500 mb-1">Комментарий клиенту</label>
+            <textarea id="input-message" rows="3" placeholder="Приеду через час, есть инструменты..." class="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-tg_text focus:ring-2 focus:ring-blue-500 outline-none mb-6"></textarea>
+            
+            <div class="flex space-x-3">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium">Отмена</button>
+                <button onclick="submitApplication()" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30">Отправить</button>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -46,140 +50,137 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        let ordersQueue = [];
+        let currentOrder = null;
 
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    
-    let ordersQueue = [];
-    let currentOrder = null;
+        // --- ФУНКЦИИ МОДАЛЬНОГО ОКНА ---
+        
+        // 1. Открыть окно при нажатии галочки
+        window.openApplyModal = function() {
+            if (!currentOrder) return;
+            
+            // Предзаполняем цену из заказа
+            document.getElementById('input-price').value = currentOrder.price;
+            document.getElementById('input-message').value = "Готов выполнить заказ!";
+            
+            // Показываем окно
+            document.getElementById('apply-modal').classList.remove('hidden');
+        }
 
-    // Загрузка ленты
-    async function loadFeed() {
-        try {
-            const response = await fetch('/api/worker/feed?v=' + Date.now(), {
-                headers: { 'Authorization': tg.initData }
-            });
-            const data = await response.json();
-            
-            document.getElementById('loading').remove(); // Убираем скелетон
-            
-            if (data.length === 0) {
-                showEmptyState();
+        // 2. Закрыть окно
+        window.closeModal = function() {
+            document.getElementById('apply-modal').classList.add('hidden');
+        }
+
+        // 3. ОТПРАВИТЬ ДАННЫЕ (Реальный отклик)
+        window.submitApplication = async function() {
+            const price = document.getElementById('input-price').value;
+            const message = document.getElementById('input-message').value;
+
+            if (!price) {
+                tg.showAlert("Укажите цену!");
                 return;
             }
+
+            closeModal(); // Скрываем окно
             
-            ordersQueue = data;
-            renderNextCard();
-            
-        } catch (e) {
-            tg.showAlert("Ошибка загрузки: " + e.message);
-        }
-    }
-
-    // Показать следующий заказ
-    function renderNextCard() {
-        if (ordersQueue.length === 0) {
-            showEmptyState();
-            return;
-        }
-
-        currentOrder = ordersQueue[0]; // Берем первый
-        const stack = document.getElementById('card-stack');
-        
-        // Создаем HTML карточки
-        const card = document.createElement('div');
-        card.id = 'active-card';
-        card.className = "absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden transition-all duration-300";
-        
-        // Карта (заглушка картинкой) или фото
-        let imageHtml = `<div class="h-48 bg-gray-100 flex items-center justify-center text-4xl">🗺</div>`;
-        if (currentOrder.photos && currentOrder.photos.length > 0) {
-             // Тут можно вставить реальное фото
-             imageHtml = `<div class="h-48 bg-gray-200 bg-cover bg-center" style="background-image: url('/api/upload/file/${currentOrder.photos[0]}')"></div>`;
-        }
-
-        card.innerHTML = `
-            ${imageHtml}
-            <div class="p-6 flex-1 flex flex-col">
-                <div class="flex justify-between items-start">
-                    <h2 class="text-2xl font-bold text-tg_text">${currentOrder.service_type}</h2>
-                    <span class="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold">${currentOrder.price} ₽</span>
-                </div>
-                
-                <p class="text-gray-400 text-sm mt-1">${currentOrder.address}</p>
-                
-                <div class="mt-4 flex-1 overflow-y-auto">
-                    <p class="text-tg_text text-lg leading-relaxed">
-                        ${currentOrder.comment || "Без описания. Нужно выполнить работу аккуратно."}
-                    </p>
-                    <div class="mt-4 flex gap-2 flex-wrap">
-                        <span class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-600">🕒 ${currentOrder.duration}ч</span>
-                        <span class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-600">📍 2.5 км</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        stack.appendChild(card);
-    }
-
-    function showEmptyState() {
-        document.getElementById('no-orders').classList.remove('hidden');
-        document.getElementById('no-orders').classList.add('flex');
-    }
-
-    // --- ЛОГИКА ДЕЙСТВИЙ ---
-
-    window.handleSkip = async function()  {
-        if (!currentOrder) return;
-        
-        // Анимация улетания влево
-        const card = document.getElementById('active-card');
-        card.style.transform = "translateX(-120%) rotate(-20deg)";
-        card.style.opacity = "0";
-        
-        // Отправка запроса (фоном)
-        fetch(`/api/worker/skip/${currentOrder.id}`, {
-            method: 'POST',
-            headers: { 'Authorization': tg.initData }
-        });
-
-        // Удаляем из очереди и показываем следующую
-        setTimeout(() => {
-            card.remove();
-            ordersQueue.shift();
-            renderNextCard();
-        }, 300);
-    }
-
-    window.handleApply = async function() {
-        if (!currentOrder) return;
-        
-        // Спрашиваем подтверждение (или можно сразу отправлять)
-        tg.showConfirm(`Откликнуться на заказ за ${currentOrder.price} ₽?`, async (ok) => {
-            if (!ok) return;
-
             // Анимация улетания вправо
             const card = document.getElementById('active-card');
-            card.style.transform = "translateX(120%) rotate(20deg)";
-            card.style.opacity = "0";
+            if (card) {
+                card.style.transform = "translateX(120%) rotate(20deg)";
+                card.style.opacity = "0";
+            }
 
-            // Отправка отклика
-            // Пока шлем стандартное сообщение, позже можно сделать input
-            await fetch(`/api/worker/apply/${currentOrder.id}?price=${currentOrder.price}&message=Готов выполнить`, {
-                method: 'POST',
-                headers: { 'Authorization': tg.initData }
-            });
+            try {
+                // Отправляем запрос с кастомной ценой и сообщением
+                // encodeURIComponent нужен, чтобы русский текст не сломал ссылку
+                const url = `/api/worker/apply/${currentOrder.id}?price=${price}&message=${encodeURIComponent(message)}`;
+                
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Authorization': tg.initData }
+                });
 
-            setTimeout(() => {
-                card.remove();
-                ordersQueue.shift();
+                tg.showAlert("Отклик отправлен!");
+
+                // Переход к следующему
+                setTimeout(() => {
+                    if (card) card.remove();
+                    ordersQueue.shift();
+                    renderNextCard();
+                }, 300);
+
+            } catch (e) {
+                tg.showAlert("Ошибка: " + e.message);
+                // Если ошибка - возвращаем карточку (опционально)
+                renderNextCard(); 
+            }
+        }
+
+        // ... (Функции loadFeed, renderNextCard, handleSkip остаются как были) ...
+
+        async function loadFeed() {
+            try {
+                const response = await fetch('/api/worker/feed?v=' + Date.now(), {
+                    headers: { 'Authorization': tg.initData }
+                });
+                const data = await response.json();
+                document.getElementById('loading').remove();
+                if (data.length === 0) { showEmptyState(); return; }
+                ordersQueue = data;
                 renderNextCard();
-                tg.showAlert("Отклик отправлен! Клиент получит уведомление.");
-            }, 300);
-        });
-    }
-    loadFeed();
+            } catch (e) { tg.showAlert("Ошибка: " + e.message); }
+        }
+
+        function renderNextCard() {
+            if (ordersQueue.length === 0) { showEmptyState(); return; }
+            currentOrder = ordersQueue[0];
+            const stack = document.getElementById('card-stack');
+            
+            let imageHtml = `<div class="h-48 bg-gray-100 flex items-center justify-center text-4xl">🗺</div>`;
+            if (currentOrder.photos && currentOrder.photos.length > 0) {
+                 imageHtml = `<div class="h-48 bg-gray-200 bg-cover bg-center" style="background-image: url('/api/upload/file/${currentOrder.photos[0]}')"></div>`;
+            }
+
+            const card = document.createElement('div');
+            card.id = 'active-card';
+            card.className = "absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden transition-all duration-300";
+            card.innerHTML = `
+                ${imageHtml}
+                <div class="p-6 flex-1 flex flex-col">
+                    <div class="flex justify-between items-start">
+                        <h2 class="text-2xl font-bold text-tg_text">${currentOrder.service_type}</h2>
+                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold">${currentOrder.price} ₽</span>
+                    </div>
+                    <p class="text-gray-400 text-sm mt-1">${currentOrder.address}</p>
+                    <div class="mt-4 flex-1 overflow-y-auto">
+                        <p class="text-tg_text text-lg leading-relaxed">${currentOrder.comment || "Без описания."}</p>
+                        <div class="mt-4 flex gap-2 flex-wrap">
+                            <span class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-600">🕒 ${currentOrder.duration}ч</span>
+                        </div>
+                    </div>
+                </div>`;
+            stack.appendChild(card);
+        }
+
+        function showEmptyState() {
+            document.getElementById('no-orders').classList.remove('hidden');
+            document.getElementById('no-orders').classList.add('flex');
+        }
+
+        window.handleSkip = async function() {
+            if (!currentOrder) return;
+            const card = document.getElementById('active-card');
+            card.style.transform = "translateX(-120%) rotate(-20deg)";
+            card.style.opacity = "0";
+            fetch(`/api/worker/skip/${currentOrder.id}`, { method: 'POST', headers: { 'Authorization': tg.initData } });
+            setTimeout(() => { card.remove(); ordersQueue.shift(); renderNextCard(); }, 300);
+        }
+        
+        loadFeed();
     });
 </script>
 {% endblock %}

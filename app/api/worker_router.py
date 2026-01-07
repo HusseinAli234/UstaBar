@@ -68,7 +68,6 @@ async def apply_order(
     if existing.scalar_one_or_none():
         return {"status": "already_exists"}
 
-    # Создаем отклик
     response = OrderResponse(
         order_id=order_id,
         worker_id=worker.id,
