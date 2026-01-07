@@ -135,10 +135,10 @@ async def cancel_order(
 
     # 1. Ищем заказ
     # Обязательно проверяем customer_id, чтобы нельзя было отменить чужой заказ
-    stmt = select(Order).where(
-        Order.id == order_id,
-        Order.customer_id == user.id  # Нужно сначала найти юзера по tg_id, см. ниже полный код
-    )
+    # stmt = select(Order).where(
+    #     Order.id == order_id,
+    #     Order.customer_id == user.id  # Нужно сначала найти юзера по tg_id, см. ниже полный код
+    # )
     
     # --- Поиск юзера (лучше вынести в dependency, но пока так) ---
     user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
