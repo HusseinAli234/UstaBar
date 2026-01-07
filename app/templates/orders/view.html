@@ -209,7 +209,7 @@
     }
 
     // ФУНКЦИЯ ПРИНЯТИЯ
-    function acceptWorker(appId, name) {
+window.acceptWorker = function(appId, name) {
         tg.showConfirm(`Нанять мастера ${name}? Заказ перейдет в статус "В работе".`, async (ok) => {
             if (!ok) return;
             
