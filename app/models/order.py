@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 from typing import Optional, Any
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, Enum, JSON
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, Enum, JSON,Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry # pip install geoalchemy2
@@ -63,3 +63,4 @@ class OrderResponse(Base):
     # Предложение рабочего
     message: Mapped[Optional[str]] = mapped_column(Text) # "Буду через 15 минут"
     proposed_price: Mapped[Optional[int]] = mapped_column(Integer) # Если хочет другую цену
+    is_skipped: Mapped[bool] = mapped_column(Boolean, default=False)
