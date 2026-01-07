@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional,List
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
@@ -27,4 +27,19 @@ class OrderRead(BaseModel):
     
     class Config:
         # Эта настройка разрешает Pydantic читать данные из ORM-моделей
+        from_attributes = True
+
+# Схема для ДЕТАЛЬНОГО просмотра
+class OrderReadDetail(BaseModel):
+    id: int
+    service_type: str
+    price: int
+    status: OrderStatus
+    address: str
+    created_at: datetime
+    duration: str
+    comment: Optional[str] = None
+    photos: Optional[List[str]] = [] # Список имен файлов
+
+    class Config:
         from_attributes = True
