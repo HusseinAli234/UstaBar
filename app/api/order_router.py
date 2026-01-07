@@ -120,3 +120,44 @@ async def get_order_detail(
         raise HTTPException(status_code=404, detail="Заказ не найден")
         
     return order
+
+# app/api/order_router.py
+
+@router.post("/api/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: int,
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # 1. Ищем заказ
+    # Обязательно проверяем customer_id, чтобы нельзя было отменить чужой заказ
+    stmt = select(Order).where(
+        Order.id == order_id,
+        Order.customer_id == user.id  # Нужно сначала найти юзера по tg_id, см. ниже полный код
+    )
+    
+    # --- Поиск юзера (лучше вынести в dependency, но пока так) ---
+    user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+    user = user_res.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    order_res = await session.execute(select(Order).where(Order.id == order_id, Order.customer_id == user.id))
+    order = order_res.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    # 2. Проверяем статус
+    if order.status != OrderStatus.SEARCHING:
+        raise HTTPException(status_code=400, detail="Нельзя отменить заказ, который уже в работе или завершен")
+
+    # 3. Отменяем
+    order.status = OrderStatus.CANCELED
+    await session.commit()
+    
+    return {"status": "ok", "message": "Заказ отменен"}
