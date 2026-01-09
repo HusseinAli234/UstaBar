@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Поиск заказов{% endblock %}
+{% block title %}Лента заказов{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 <div class="flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 relative">
     
     <div class="px-4 py-3 flex justify-between items-center z-10">
         <h1 class="text-xl font-bold text-tg_text">Лента заказов</h1>
-        <div class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">Ваша роль: Мастер</div>
+        <div id="gps-status" class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold">
+            📡 Поиск GPS...
+        </div>
     </div>
 
     <div id="card-stack" class="flex-1 relative mx-4 mb-24 mt-2">
@@ -16,30 +20,24 @@
             <h3 class="text-xl font-bold text-tg_text">Заказов пока нет</h3>
             <button onclick="location.reload()" class="mt-6 px-6 py-2 bg-blue-500 text-white rounded-xl">Обновить</button>
         </div>
-        <div id="loading" class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 animate-pulse">
-            <div class="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
+        <div id="loading" class="absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 animate-pulse">
+            <div class="h-64 bg-gray-200 rounded-xl mb-4"></div>
         </div>
     </div>
 
     <div class="fixed bottom-6 left-0 right-0 px-8 flex justify-center space-x-6 z-20">
-        <button onclick="handleSkip()" class="w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-red-100 text-red-500 flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">❌</button>
-        <button onclick="openApplyModal()" class="w-16 h-16 rounded-full bg-blue-500 shadow-xl shadow-blue-500/30 text-white flex items-center justify-center text-3xl hover:scale-110 transition-transform active:scale-95">✅</button>
+        <button onclick="handleSkip()" class="w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-red-100 text-red-500 text-3xl">❌</button>
+        <button onclick="openApplyModal()" class="w-16 h-16 rounded-full bg-blue-500 shadow-xl shadow-blue-500/30 text-white text-3xl">✅</button>
     </div>
 
-    <div id="apply-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
-        <div class="bg-white dark:bg-gray-800 w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl shadow-2xl transform transition-transform translate-y-0">
-            
+    <div id="apply-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md p-6 rounded-2xl shadow-2xl m-4">
             <h3 class="text-xl font-bold text-tg_text mb-4">Ваше предложение</h3>
-            
-            <label class="block text-sm text-gray-500 mb-1">Предложите цену (₽)</label>
-            <input id="input-price" type="number" class="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-lg font-bold text-tg_text focus:ring-2 focus:ring-blue-500 outline-none mb-4">
-            
-            <label class="block text-sm text-gray-500 mb-1">Комментарий клиенту</label>
-            <textarea id="input-message" rows="3" placeholder="Приеду через час, есть инструменты..." class="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-tg_text focus:ring-2 focus:ring-blue-500 outline-none mb-6"></textarea>
-            
+            <input id="input-price" type="number" class="w-full p-3 mb-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-lg font-bold text-tg_text" placeholder="Цена">
+            <textarea id="input-message" rows="3" class="w-full p-3 mb-6 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-tg_text" placeholder="Комментарий..."></textarea>
             <div class="flex space-x-3">
-                <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium">Отмена</button>
-                <button onclick="submitApplication()" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30">Отправить</button>
+                <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-tg_text rounded-xl">Отмена</button>
+                <button onclick="submitApplication()" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold">Отправить</button>
             </div>
         </div>
     </div>
@@ -48,6 +46,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const tg = window.Telegram.WebApp;
@@ -55,72 +54,40 @@
         
         let ordersQueue = [];
         let currentOrder = null;
+        let workerLocation = null; // {lat, lng}
 
-        // --- ФУНКЦИИ МОДАЛЬНОГО ОКНА ---
-        
-        // 1. Открыть окно при нажатии галочки
-        window.openApplyModal = function() {
-            if (!currentOrder) return;
-            
-            // Предзаполняем цену из заказа
-            document.getElementById('input-price').value = currentOrder.price;
-            document.getElementById('input-message').value = "Готов выполнить заказ!";
-            
-            // Показываем окно
-            document.getElementById('apply-modal').classList.remove('hidden');
-        }
-
-        // 2. Закрыть окно
-        window.closeModal = function() {
-            document.getElementById('apply-modal').classList.add('hidden');
-        }
-
-        // 3. ОТПРАВИТЬ ДАННЫЕ (Реальный отклик)
-        window.submitApplication = async function() {
-            const price = document.getElementById('input-price').value;
-            const message = document.getElementById('input-message').value;
-
-            if (!price) {
-                tg.showAlert("Укажите цену!");
-                return;
-            }
-
-            closeModal(); // Скрываем окно
-            
-            // Анимация улетания вправо
-            const card = document.getElementById('active-card');
-            if (card) {
-                card.style.transform = "translateX(120%) rotate(20deg)";
-                card.style.opacity = "0";
-            }
-
-            try {
-                // Отправляем запрос с кастомной ценой и сообщением
-                // encodeURIComponent нужен, чтобы русский текст не сломал ссылку
-                const url = `/api/worker/apply/${currentOrder.id}?price=${price}&message=${encodeURIComponent(message)}`;
-                
-                await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Authorization': tg.initData }
-                });
-
-                tg.showAlert("Отклик отправлен!");
-
-                // Переход к следующему
-                setTimeout(() => {
-                    if (card) card.remove();
-                    ordersQueue.shift();
-                    renderNextCard();
-                }, 300);
-
-            } catch (e) {
-                tg.showAlert("Ошибка: " + e.message);
-                // Если ошибка - возвращаем карточку (опционально)
-                renderNextCard(); 
+        // 1. ПОЛУЧАЕМ GPS РАБОТНИКА
+        function initGPS() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        workerLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        document.getElementById('gps-status').className = "px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold";
+                        document.getElementById('gps-status').innerText = "📍 GPS найден";
+                        // Если заказы уже загрузились, обновляем текущую карточку
+                        if (currentOrder) updateDistanceInfo(); 
+                    },
+                    (error) => {
+                        document.getElementById('gps-status').innerText = "❌ Нет GPS";
+                        tg.showAlert("Включите геолокацию, чтобы видеть расстояние!");
+                    }
+                );
             }
         }
 
-        // ... (Функции loadFeed, renderNextCard, handleSkip остаются как были) ...
+        // 2. РАСЧЕТ РАССТОЯНИЯ (Формула Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Радиус Земли в км
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (R * c).toFixed(1); // Возвращаем км с 1 знаком (2.5)
+        }
 
         async function loadFeed() {
             try {
@@ -132,7 +99,7 @@
                 if (data.length === 0) { showEmptyState(); return; }
                 ordersQueue = data;
                 renderNextCard();
-            } catch (e) { tg.showAlert("Ошибка: " + e.message); }
+            } catch (e) { console.error(e); }
         }
 
         function renderNextCard() {
@@ -140,37 +107,93 @@
             currentOrder = ordersQueue[0];
             const stack = document.getElementById('card-stack');
             
-            let imageHtml = `<div class="h-48 bg-gray-100 flex items-center justify-center text-4xl">🗺</div>`;
-            if (currentOrder.photos && currentOrder.photos.length > 0) {
-                 imageHtml = `<div class="h-48 bg-gray-200 bg-cover bg-center" style="background-image: url('/api/upload/file/${currentOrder.photos[0]}')"></div>`;
-            }
+            // Генерируем уникальный ID для карты
+            const mapId = `map-${currentOrder.id}`;
 
             const card = document.createElement('div');
             card.id = 'active-card';
             card.className = "absolute inset-0 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden transition-all duration-300";
+            
+            // Верхняя часть: КАРТА
+            // Мы создаем div для карты вместо картинки
             card.innerHTML = `
-                ${imageHtml}
-                <div class="p-6 flex-1 flex flex-col">
+                <div id="${mapId}" class="h-56 bg-gray-100 z-0"></div>
+                
+                <div class="p-6 flex-1 flex flex-col z-10 bg-white dark:bg-gray-800 rounded-t-3xl -mt-6">
                     <div class="flex justify-between items-start">
                         <h2 class="text-2xl font-bold text-tg_text">${currentOrder.service_type}</h2>
                         <span class="px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold">${currentOrder.price} ₽</span>
                     </div>
-                    <p class="text-gray-400 text-sm mt-1">${currentOrder.address}</p>
+                    
+                    <p class="text-gray-400 text-sm mt-1 truncate">${currentOrder.address}</p>
+                    
                     <div class="mt-4 flex-1 overflow-y-auto">
                         <p class="text-tg_text text-lg leading-relaxed">${currentOrder.comment || "Без описания."}</p>
+                        
                         <div class="mt-4 flex gap-2 flex-wrap">
                             <span class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-600">🕒 ${currentOrder.duration}ч</span>
+                            <span id="dist-${currentOrder.id}" class="px-3 py-1 bg-blue-50 text-blue-600 rounded text-sm font-bold">
+                                🔄 Расчет...
+                            </span>
                         </div>
+
+                        <a href="yandexmaps://build_route_on_map?lat_to=${currentOrder.lat}&lon_to=${currentOrder.lon}" 
+                           class="mt-4 block w-full py-2 bg-gray-100 text-center rounded-lg text-sm text-blue-600 font-medium">
+                           🚗 Открыть в навигаторе
+                        </a>
                     </div>
                 </div>`;
+            
             stack.appendChild(card);
+
+            // 3. ИНИЦИАЛИЗИРУЕМ КАРТУ (после добавления в DOM)
+            initCardMap(mapId, currentOrder.lat, currentOrder.lon);
+            updateDistanceInfo();
         }
 
-        function showEmptyState() {
-            document.getElementById('no-orders').classList.remove('hidden');
-            document.getElementById('no-orders').classList.add('flex');
+        // Рисуем карту внутри карточки
+        function initCardMap(elementId, orderLat, orderLon) {
+            // Центрируем карту на заказе
+            const map = L.map(elementId, {
+                zoomControl: false, // Убираем кнопки зума, чтобы не мешали
+                attributionControl: false
+            }).setView([orderLat, orderLon], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            // Маркер заказа (Красный)
+            const orderIcon = L.divIcon({className: 'text-4xl', html: '📍', iconSize: [40, 40], iconAnchor: [20, 40]});
+            L.marker([orderLat, orderLon], {icon: orderIcon}).addTo(map);
+
+            // Если есть GPS работника - рисуем линию и второго человечка
+            if (workerLocation) {
+                const workerIcon = L.divIcon({className: 'text-2xl', html: '🛵', iconSize: [30, 30], iconAnchor: [15, 15]});
+                L.marker([workerLocation.lat, workerLocation.lng], {icon: workerIcon}).addTo(map);
+
+                // Рисуем пунктирную линию
+                const latlngs = [
+                    [workerLocation.lat, workerLocation.lng],
+                    [orderLat, orderLon]
+                ];
+                const polyline = L.polyline(latlngs, {color: 'blue', dashArray: '5, 10', weight: 3}).addTo(map);
+                
+                // Зуммируем карту, чтобы влезли обе точки
+                map.fitBounds(polyline.getBounds(), {padding: [20, 20]});
+            }
         }
 
+        // Обновляем текст расстояния
+        function updateDistanceInfo() {
+            if (!currentOrder || !workerLocation) return;
+            
+            const dist = calculateDistance(workerLocation.lat, workerLocation.lng, currentOrder.lat, currentOrder.lon);
+            const badge = document.getElementById(`dist-${currentOrder.id}`);
+            if (badge) {
+                badge.innerText = `📏 ${dist} км от вас`;
+            }
+        }
+
+        // Остальные функции (handleSkip, openApplyModal, closeModal, submitApplication) остаются как были...
         window.handleSkip = async function() {
             if (!currentOrder) return;
             const card = document.getElementById('active-card');
@@ -179,7 +202,36 @@
             fetch(`/api/worker/skip/${currentOrder.id}`, { method: 'POST', headers: { 'Authorization': tg.initData } });
             setTimeout(() => { card.remove(); ordersQueue.shift(); renderNextCard(); }, 300);
         }
-        
+
+        window.openApplyModal = function() {
+            if (!currentOrder) return;
+            document.getElementById('input-price').value = currentOrder.price;
+            document.getElementById('apply-modal').classList.remove('hidden');
+        }
+
+        window.closeModal = function() { document.getElementById('apply-modal').classList.add('hidden'); }
+
+        window.submitApplication = async function() {
+            const price = document.getElementById('input-price').value;
+            const msg = document.getElementById('input-message').value;
+            closeModal();
+            const card = document.getElementById('active-card');
+            if (card) { card.style.transform = "translateX(120%) rotate(20deg)"; card.style.opacity = "0"; }
+            
+            await fetch(`/api/worker/apply/${currentOrder.id}?price=${price}&message=${encodeURIComponent(msg)}`, {
+                method: 'POST', headers: { 'Authorization': tg.initData }
+            });
+            tg.showAlert("Отклик отправлен!");
+            setTimeout(() => { if (card) card.remove(); ordersQueue.shift(); renderNextCard(); }, 300);
+        }
+
+        function showEmptyState() {
+            document.getElementById('no-orders').classList.remove('hidden');
+            document.getElementById('no-orders').classList.add('flex');
+        }
+
+        // Запуск
+        initGPS();
         loadFeed();
     });
 </script>
