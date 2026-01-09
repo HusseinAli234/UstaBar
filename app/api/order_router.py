@@ -228,8 +228,36 @@ async def accept_application(
     # (Если у вас есть поле is_accepted в OrderResponse, поставьте True)
     # application.is_accepted = True
 
+    order.worker_id = application.worker_id
+
     await session.commit()
     
     # ТУТ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ МАСТЕРУ: "Вас выбрали!"
     
     return {"status": "ok"}
+
+
+@router.post("/api/orders/{order_id}/complete")
+async def complete_order(
+    order_id: int,
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    # ... (проверка юзера как обычно) ...
+
+    order_res = await session.execute(
+        select(Order).where(Order.id == order_id, Order.customer_id == user.id)
+    )
+    order = order_res.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(404, "Заказ не найден")
+
+    if order.status != OrderStatus.IN_PROGRESS:
+        raise HTTPException(400, "Можно завершить только заказ в работе")
+
+    order.status = OrderStatus.COMPLETED
+    await session.commit()
+    
+    return {"status": "ok", "message": "Заказ завершен"}
