@@ -206,9 +206,7 @@ async def accept_application(
     authorization: str = Header(..., alias="Authorization"),
     session: AsyncSession = Depends(get_async_session)
 ):
-    # ... тут тоже нужна проверка валидации и прав доступа ...
 
-    # 1. Получаем отклик
     app_res = await session.execute(select(OrderResponse).where(OrderResponse.id == application_id))
     application = app_res.scalar_one_or_none()
     
