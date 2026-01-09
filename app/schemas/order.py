@@ -5,6 +5,13 @@ from datetime import datetime
 from typing import Optional
 from app.models.order import OrderStatus
 
+
+class WorkerContact(BaseModel):
+    name: str
+    phone: Optional[str]
+    username: Optional[str]
+
+    
 class OrderCreate(BaseModel):
     service_id: str
     price: int
@@ -49,6 +56,7 @@ class OrderReadDetail(BaseModel):
     duration: str
     comment: Optional[str] = None
     photos: Optional[List[str]] = []
+    worker: Optional[WorkerContact] = None
     
     # Добавляем поля координат
     lat: float

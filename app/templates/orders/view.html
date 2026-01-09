@@ -43,6 +43,32 @@
         <div id="photos-grid" class="grid grid-cols-3 gap-2">
             </div>
     </div>
+        <div id="worker-info-block" class="hidden mt-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-2xl p-4">
+        <h3 class="text-sm text-blue-600 font-bold mb-3 uppercase tracking-wider">Исполнитель</h3>
+        
+        <div class="flex items-center space-x-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center text-xl font-bold">
+                <span id="worker-avatar">👤</span>
+            </div>
+            <div>
+                <div id="worker-name" class="font-bold text-lg text-tg_text">Имя Мастера</div>
+                <div id="worker-username" class="text-sm text-gray-500">@username</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <a id="btn-call" href="#" class="flex items-center justify-center py-2 bg-white dark:bg-gray-700 rounded-xl shadow-sm font-medium text-tg_text">
+                📞 Позвонить
+            </a>
+            <a id="btn-telegram" href="#" class="flex items-center justify-center py-2 bg-blue-500 text-white rounded-xl shadow-sm font-medium">
+                ✈️ Написать
+            </a>
+        </div>
+
+        <button onclick="completeOrder()" class="w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-500/30 transition-transform active:scale-95">
+            ✅ Заказ выполнен
+        </button>
+    </div>
 
     <div id="applications-section" class="hidden mt-6">
         <h3 class="text-lg font-bold text-tg_text mb-3 flex items-center">
@@ -53,6 +79,7 @@
         <div id="applications-list" class="space-y-3 pb-20">
             </div>
     </div>
+
     <button id="cancel-btn" class="w-full py-3 rounded-xl bg-red-50 text-red-600 font-medium hidden">
         Отменить заказ
     </button>
@@ -118,10 +145,59 @@
                 // Вешаем обработчик
                 btn.onclick = () => handleCancelOrder();
             }
+            if (order.status === 'in_progress' && order.worker) {
+            document.getElementById('worker-info-block').classList.remove('hidden');
+            
+            // Скрываем кнопку отмены и список откликов (они больше не нужны)
+            document.getElementById('cancel-btn').classList.add('hidden');
+            document.getElementById('applications-section').classList.add('hidden');
+
+            // Заполняем данные
+            document.getElementById('worker-name').innerText = order.worker.name;
+            document.getElementById('worker-avatar').innerText = order.worker.name[0];
+            
+            const username = order.worker.username ? `@${order.worker.username}` : 'Нет никнейма';
+            document.getElementById('worker-username').innerText = username;
+
+            // Ссылки
+            if (order.worker.phone) {
+                document.getElementById('btn-call').href = `tel:${order.worker.phone}`;
+            } else {
+                document.getElementById('btn-call').classList.add('opacity-50', 'pointer-events-none');
+            }
+
+            if (order.worker.username) {
+                document.getElementById('btn-telegram').href = `https://t.me/${order.worker.username}`;
+            } else {
+                document.getElementById('btn-telegram').classList.add('hidden');
+            }
+        }
 
         } catch (e) {
             tg.showAlert("Не удалось загрузить детали: " + e.message);
         }
+    }
+    window.completeOrder = function() {
+        tg.showConfirm("Вы подтверждаете, что работа выполнена и вы оплатили заказ?", async (ok) => {
+            if (!ok) return;
+
+            tg.MainButton.showProgress();
+            try {
+                const res = await fetch(`/api/orders/${orderId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Authorization': tg.initData }
+                });
+                
+                if (res.ok) {
+                    tg.MainButton.hideProgress();
+                    tg.showAlert("Отлично! Заказ перенесен в архив.");
+                    window.location.reload(); 
+                }
+            } catch (e) {
+                tg.MainButton.hideProgress();
+                tg.showAlert("Ошибка");
+            }
+        });
     }
 
     // Функция отмены заказа

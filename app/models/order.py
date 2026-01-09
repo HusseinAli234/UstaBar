@@ -25,6 +25,8 @@ class Order(Base):
     customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     customer: Mapped["User"] = relationship(back_populates="created_orders")
 
+    worker_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    worker: Mapped[Optional["User"]] = relationship("User", foreign_keys=[worker_id], lazy="selectin")
     # Детали заказа
     service_type: Mapped[str] = mapped_column(String, index=True) # electrician
     price: Mapped[int] = mapped_column(Integer) # Бюджет
