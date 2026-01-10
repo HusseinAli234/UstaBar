@@ -109,7 +109,7 @@ async def get_order_detail(
 
     # Ищем заказ, который принадлежит этому юзеру
     # (Чтобы чужие заказы нельзя было смотреть перебором ID)
-    query = select(Order).join(User).where(
+    query = select(Order).join(Order.customer).where(
         Order.id == order_id,
         User.tg_id == user_data["id"]
     )
