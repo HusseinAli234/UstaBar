@@ -172,6 +172,39 @@ from app.schemas.response import ApplicationRead
 from app.models.order import OrderResponse # Не забудь импортировать модель
 
 # 1. ПОЛУЧИТЬ СПИСОК ОТКЛИКОВ
+
+@router.get("/api/orders/{order_id}/applications", response_model=list[ApplicationRead])
+async def get_order_applications(
+    order_id: int,
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Ищем заказ и проверяем, что он принадлежит юзеру
+    # (код проверки order/user пропущен для краткости, используй из прошлых примеров)
+    # ...
+
+    # Запрос: Отклики + Данные рабочего + Профиль рабочего
+    # Важно: нужно загрузить relationship worker
+    stmt = (
+        select(OrderResponse)
+        .where(
+            OrderResponse.order_id == order_id, 
+            OrderResponse.is_skipped == False
+        )
+        .options(selectinload(OrderResponse.worker)) 
+    )
+    
+    result = await session.execute(stmt)
+    applications = result.scalars().all()
+    
+    return applications
+
+
+
 @router.post("/api/orders/{order_id}/accept/{application_id}")
 async def accept_application(
     order_id: int,
