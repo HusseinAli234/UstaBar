@@ -23,10 +23,18 @@ class Order(Base):
     
     # Клиент (Владелец заказа)
     customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    customer: Mapped["User"] = relationship(back_populates="created_orders")
+    customer: Mapped["User"] = relationship(
+        "User", 
+        foreign_keys=[customer_id],  # <--- Указываем: это связь через customer_id
+        back_populates="client_orders" # Имя связи в модели User (см. шаг 2)
+    )
 
     worker_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    worker: Mapped[Optional["User"]] = relationship("User", foreign_keys=[worker_id], lazy="selectin")
+    worker: Mapped[Optional["User"]] = relationship(
+        "User", 
+        foreign_keys=[worker_id],    # <--- Указываем: это связь через worker_id
+        back_populates="worker_orders" # Имя связи в модели User (см. шаг 2)
+    )
     # Детали заказа
     service_type: Mapped[str] = mapped_column(String, index=True) # electrician
     price: Mapped[int] = mapped_column(Integer) # Бюджет

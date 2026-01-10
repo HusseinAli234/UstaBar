@@ -2,7 +2,7 @@ from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 from app.core.database import Base
 from sqlalchemy import String, Boolean, BigInteger, ForeignKey,Float
-from typing import Optional
+from typing import Optional,List
 class User(Base):
     __tablename__ = "users"
 
@@ -38,8 +38,16 @@ class User(Base):
     )
 
     # 2. Заказы, которые создал этот юзер (One-to-Many)
-    created_orders: Mapped[list["Order"]] = relationship(back_populates="customer")
-
+    client_orders: Mapped[List["Order"]] = relationship(
+        "Order",
+        foreign_keys="[Order.customer_id]", # <--- Важно!
+        back_populates="customer"
+    )
+    worker_orders: Mapped[List["Order"]] = relationship(
+        "Order",
+        foreign_keys="[Order.worker_id]",   # <--- Важно!
+        back_populates="worker"
+    )
 
 
     hashed_password: Mapped[str] = mapped_column(
