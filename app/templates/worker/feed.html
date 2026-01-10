@@ -137,10 +137,10 @@
                             </span>
                         </div>
 
-                     <a href="dgis://2gis.ru/routeSearch/to/${currentOrder.lon},${currentOrder.lat}/go" 
+                     <button onclick="openNavigator(${currentOrder.lat}, ${currentOrder.lon})" 
    class="mt-4 block w-full py-2 bg-gray-100 text-center rounded-lg text-sm text-green-600 font-medium hover:bg-green-50 transition-colors">
    🌲 Открыть в 2GIS
-</a>
+</button>
                     </div>
                 </div>`;
             
@@ -201,6 +201,16 @@
             card.style.opacity = "0";
             fetch(`/api/worker/skip/${currentOrder.id}`, { method: 'POST', headers: { 'Authorization': tg.initData } });
             setTimeout(() => { card.remove(); ordersQueue.shift(); renderNextCard(); }, 300);
+        }
+        // Добавьте эту функцию в скрипты
+        window.openNavigator = function(lat, lon) {
+            // Формируем универсальную ссылку
+            // 2GIS понимает формат: lon,lat (долгота, широта)
+            const url = `https://2gis.ru/routeSearch/to/${lon},${lat}/go`;
+            
+            // ВАЖНО: Используем метод Telegram API для открытия внешних ссылок
+            // try_instant_view: false гарантирует, что ссылка откроется во внешнем браузере/приложении
+            tg.openLink(url, { try_instant_view: false });
         }
 
         window.openApplyModal = function() {
