@@ -75,7 +75,10 @@ async def map_select_page(
         "cleaning": "🧹 Клининг",
         "electrician": "⚡ Электрик",
         "plumber": "🔧 Сантехник",
-        # добавьте остальные...
+        "nanny": "🧸 Няня",
+        "tutor":"📚 Репетитор",
+        "courier": "📦 Курьер",
+
     }
     
     service_name = service_names.get(service_id, service_id)
