@@ -271,4 +271,15 @@ async def complete_order(
     order_res = await session.execute(
         select(Order).where(Order.id == order_id, Order.customer_id == user.id)
     )
-    # ... дальше все ок
+    order = order_res.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(404, "Заказ не найден")
+
+    if order.status != OrderStatus.IN_PROGRESS:
+        raise HTTPException(400, "Можно завершить только заказ в работе")
+
+    order.status = OrderStatus.COMPLETED
+    await session.commit()
+    
+    return {"status": "ok", "message": "Заказ завершен"}
