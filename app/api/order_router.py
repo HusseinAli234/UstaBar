@@ -107,12 +107,17 @@ async def get_order_detail(
     if not user_data:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Ищем заказ, который принадлежит этому юзеру
-    # (Чтобы чужие заказы нельзя было смотреть перебором ID)
-    query = select(Order).join(Order.customer).where(
-        Order.id == order_id,
-        User.tg_id == user_data["id"]
+    query = (
+        select(Order)
+        .join(Order.customer)
+        .where(
+            Order.id == order_id,
+            User.tg_id == user_data["id"]
+        )
+        # ВАЖНО: Подгружаем мастера, иначе Pydantic упадет
+        .options(selectinload(Order.worker)) 
     )
+    
     result = await session.execute(query)
     order = result.scalar_one_or_none()
     
@@ -167,38 +172,6 @@ from app.schemas.response import ApplicationRead
 from app.models.order import OrderResponse # Не забудь импортировать модель
 
 # 1. ПОЛУЧИТЬ СПИСОК ОТКЛИКОВ
-@router.get("/api/orders/{order_id}/applications", response_model=list[ApplicationRead])
-async def get_order_applications(
-    order_id: int,
-    authorization: str = Header(..., alias="Authorization"),
-    session: AsyncSession = Depends(get_async_session)
-):
-    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    # Ищем заказ и проверяем, что он принадлежит юзеру
-    # (код проверки order/user пропущен для краткости, используй из прошлых примеров)
-    # ...
-
-    # Запрос: Отклики + Данные рабочего + Профиль рабочего
-    # Важно: нужно загрузить relationship worker
-    stmt = (
-        select(OrderResponse)
-        .where(
-            OrderResponse.order_id == order_id, 
-            OrderResponse.is_skipped == False
-        )
-        .options(selectinload(OrderResponse.worker)) 
-    )
-    
-    result = await session.execute(stmt)
-    applications = result.scalars().all()
-    
-    return applications
-
-
-# 2. ПРИНЯТЬ МАСТЕРА (Начать работу)
 @router.post("/api/orders/{order_id}/accept/{application_id}")
 async def accept_application(
     order_id: int,
@@ -206,34 +179,41 @@ async def accept_application(
     authorization: str = Header(..., alias="Authorization"),
     session: AsyncSession = Depends(get_async_session)
 ):
+    # 1. ПРОВЕРКА АВТОРИЗАЦИИ
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
+    # 2. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА
+    user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+    user = user_res.scalar_one_or_none()
+
+    # 3. ПОЛУЧАЕМ ЗАКАЗ И ПРОВЕРЯЕМ, ЧТО ОН ПРИНАДЛЕЖИТ ЮЗЕРУ
+    order_res = await session.execute(
+        select(Order).where(
+            Order.id == order_id, 
+            Order.customer_id == user.id  # <-- ВАЖНО: Только владелец может принять мастера
+        )
+    )
+    order = order_res.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(404, "Заказ не найден или нет прав")
+
+    # 4. ПОЛУЧАЕМ ОТКЛИК
     app_res = await session.execute(select(OrderResponse).where(OrderResponse.id == application_id))
     application = app_res.scalar_one_or_none()
     
     if not application:
         raise HTTPException(404, "Отклик не найден")
 
-    # 2. Получаем заказ
-    order_res = await session.execute(select(Order).where(Order.id == order_id))
-    order = order_res.scalar_one()
-
-    # 3. Меняем статус заказа
+    # ... логика обновления статуса ...
     order.status = OrderStatus.IN_PROGRESS
-    
-    # Важно: Сохраняем финальную цену (если мастер предложил свою)
     if application.proposed_price:
         order.price = application.proposed_price
-
-    # 4. Помечаем отклик как принятый
-    # (Если у вас есть поле is_accepted в OrderResponse, поставьте True)
-    # application.is_accepted = True
-
     order.worker_id = application.worker_id
 
     await session.commit()
-    
-    # ТУТ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ МАСТЕРУ: "Вас выбрали!"
-    
     return {"status": "ok"}
 
 
@@ -244,20 +224,18 @@ async def complete_order(
     session: AsyncSession = Depends(get_async_session)
 ):
     user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
-    # ... (проверка юзера как обычно) ...
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
+    # --- ДОБАВЛЯЕМ ПОИСК ЮЗЕРА ---
+    user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+    user = user_res.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # -----------------------------
+
+    # Теперь user.id существует
     order_res = await session.execute(
         select(Order).where(Order.id == order_id, Order.customer_id == user.id)
     )
-    order = order_res.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(404, "Заказ не найден")
-
-    if order.status != OrderStatus.IN_PROGRESS:
-        raise HTTPException(400, "Можно завершить только заказ в работе")
-
-    order.status = OrderStatus.COMPLETED
-    await session.commit()
-    
-    return {"status": "ok", "message": "Заказ завершен"}
+    # ... дальше все ок
