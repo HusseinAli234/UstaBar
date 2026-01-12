@@ -284,7 +284,7 @@ async def complete_order(
     
     return {"status": "ok", "message": "Заказ завершен"}
 
-from app.main import bot 
+from app.loader import bot
 from sqlalchemy.orm import selectinload
 
 
