@@ -135,7 +135,10 @@ async def get_worker_active_orders(
             Order.worker_id == worker.id,
             Order.status == OrderStatus.IN_PROGRESS
         )
-        .options(selectinload(Order.customer)) # <--- Грузим данные клиента
+        .options(
+            selectinload(Order.customer), 
+            selectinload(Order.worker)    
+        )
         .order_by(desc(Order.created_at))
     )
     
