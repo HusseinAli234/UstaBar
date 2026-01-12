@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Мои работы{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
+    
+    <div class="px-4 py-4">
+        <h1 class="text-2xl font-bold text-tg_text mb-4">💼 Активные заказы</h1>
+        <div id="jobs-list" class="space-y-4">
+            <div id="loader" class="text-center text-gray-500 mt-10">Загрузка...</div>
+        </div>
+        
+        <div id="empty-state" class="hidden flex-col items-center justify-center mt-20 text-center">
+            <div class="text-5xl mb-4">💤</div>
+            <p class="text-gray-500">Пока нет активных заказов.</p>
+            <p class="text-sm text-gray-400">Откликайтесь в ленте, и заказы появятся здесь.</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => window.history.back());
+
+        async function loadActiveJobs() {
+            try {
+                const response = await fetch('/api/worker/orders/active', {
+                    headers: { 'Authorization': tg.initData }
+                });
+                const orders = await response.json();
+                
+                document.getElementById('loader').remove();
+
+                if (orders.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.getElementById('empty-state').classList.add('flex');
+                    return;
+                }
+
+                const list = document.getElementById('jobs-list');
+                
+                orders.forEach(order => {
+                    const clientName = order.customer ? order.customer.name : "Клиент";
+                    const clientPhone = (order.customer && order.customer.phone) ? order.customer.phone : null;
+                    const clientUsername = (order.customer && order.customer.username) ? order.customer.username : null;
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-l-4 border-blue-500 dark:border-gray-700";
+                    
+                    // Кнопки связи
+                    let contactButtons = '';
+                    if (clientPhone) {
+                        contactButtons += `<a href="tel:${clientPhone}" class="flex-1 py-2 bg-green-100 text-green-700 rounded-lg text-center font-bold text-sm">📞 Позвонить</a>`;
+                    }
+                    if (clientUsername) {
+                        contactButtons += `<a href="https://t.me/${clientUsername}" class="flex-1 py-2 bg-blue-100 text-blue-700 rounded-lg text-center font-bold text-sm ml-2">✈️ Написать</a>`;
+                    }
+
+                    // Кнопка навигатора
+                    const navBtn = `<button onclick="openNavigator(${order.lat}, ${order.lon})" class="w-full mt-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium">📍 Открыть маршрут (2GIS)</button>`;
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-tg_text">${order.service_type}</h3>
+                            <span class="text-green-600 font-bold">${order.price} ₽</span>
+                        </div>
+                        
+                        <div class="text-sm text-gray-500 mb-3">
+                            📍 ${order.address}
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl mb-4">
+                            <div class="text-xs text-gray-400 uppercase font-bold mb-1">Заказчик</div>
+                            <div class="font-medium text-tg_text text-lg">${clientName}</div>
+                        </div>
+
+                        <div class="flex mb-1">
+                            ${contactButtons}
+                        </div>
+                        ${navBtn}
+                        
+                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 text-center">
+                            <p class="text-xs text-gray-400">Ожидайте, пока клиент подтвердит выполнение.</p>
+                        </div>
+                    `;
+                    
+                    list.appendChild(card);
+                });
+
+            } catch (e) {
+                tg.showAlert("Ошибка: " + e.message);
+            }
+        }
+
+        // Функция открытия навигатора (та же, что и раньше)
+        window.openNavigator = function(lat, lon) {
+            const url = `https://2gis.ru/routeSearch/to/${lon},${lat}/go`;
+            tg.openLink(url, { try_instant_view: false });
+        }
+
+        loadActiveJobs();
+    });
+</script>
+{% endblock %}
