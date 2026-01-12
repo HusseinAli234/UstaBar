@@ -205,49 +205,49 @@ async def get_order_applications(
 
 
 
-@router.post("/api/orders/{order_id}/accept/{application_id}")
-async def accept_application(
-    order_id: int,
-    application_id: int,
-    authorization: str = Header(..., alias="Authorization"),
-    session: AsyncSession = Depends(get_async_session)
-):
-    # 1. ПРОВЕРКА АВТОРИЗАЦИИ
-    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+# @router.post("/api/orders/{order_id}/accept/{application_id}")
+# async def accept_application(
+#     order_id: int,
+#     application_id: int,
+#     authorization: str = Header(..., alias="Authorization"),
+#     session: AsyncSession = Depends(get_async_session)
+# ):
+#     # 1. ПРОВЕРКА АВТОРИЗАЦИИ
+#     user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+#     if not user_data:
+#         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # 2. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА
-    user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
-    user = user_res.scalar_one_or_none()
+#     # 2. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА
+#     user_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+#     user = user_res.scalar_one_or_none()
 
-    # 3. ПОЛУЧАЕМ ЗАКАЗ И ПРОВЕРЯЕМ, ЧТО ОН ПРИНАДЛЕЖИТ ЮЗЕРУ
-    order_res = await session.execute(
-        select(Order).where(
-            Order.id == order_id, 
-            Order.customer_id == user.id  # <-- ВАЖНО: Только владелец может принять мастера
-        )
-    )
-    order = order_res.scalar_one_or_none()
+#     # 3. ПОЛУЧАЕМ ЗАКАЗ И ПРОВЕРЯЕМ, ЧТО ОН ПРИНАДЛЕЖИТ ЮЗЕРУ
+#     order_res = await session.execute(
+#         select(Order).where(
+#             Order.id == order_id, 
+#             Order.customer_id == user.id  # <-- ВАЖНО: Только владелец может принять мастера
+#         )
+#     )
+#     order = order_res.scalar_one_or_none()
     
-    if not order:
-        raise HTTPException(404, "Заказ не найден или нет прав")
+#     if not order:
+#         raise HTTPException(404, "Заказ не найден или нет прав")
 
-    # 4. ПОЛУЧАЕМ ОТКЛИК
-    app_res = await session.execute(select(OrderResponse).where(OrderResponse.id == application_id))
-    application = app_res.scalar_one_or_none()
+#     # 4. ПОЛУЧАЕМ ОТКЛИК
+#     app_res = await session.execute(select(OrderResponse).where(OrderResponse.id == application_id))
+#     application = app_res.scalar_one_or_none()
     
-    if not application:
-        raise HTTPException(404, "Отклик не найден")
+#     if not application:
+#         raise HTTPException(404, "Отклик не найден")
 
-    # ... логика обновления статуса ...
-    order.status = OrderStatus.IN_PROGRESS
-    if application.proposed_price:
-        order.price = application.proposed_price
-    order.worker_id = application.worker_id
+#     # ... логика обновления статуса ...
+#     order.status = OrderStatus.IN_PROGRESS
+#     if application.proposed_price:
+#         order.price = application.proposed_price
+#     order.worker_id = application.worker_id
 
-    await session.commit()
-    return {"status": "ok"}
+#     await session.commit()
+#     return {"status": "ok"}
 
 
 @router.post("/api/orders/{order_id}/complete")
