@@ -104,3 +104,41 @@ async def skip_order(
     await session.commit()
     
     return {"status": "skipped"}
+
+
+# Добавьте selectinload в импорты
+from sqlalchemy.orm import selectinload
+from sqlalchemy import desc
+
+@router.get("/api/worker/orders/active", response_model=list[OrderReadDetail])
+async def get_worker_active_orders(
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    user_data = validate_telegram_data(authorization, settings.BOT_TOKEN)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Ищем самого мастера по tg_id
+    worker_res = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+    worker = worker_res.scalar_one_or_none()
+    if not worker:
+        return []
+
+    # Ищем заказы:
+    # 1. Где worker_id совпадает с мастером
+    # 2. Статус IN_PROGRESS (В работе)
+    # 3. ОБЯЗАТЕЛЬНО подгружаем customer (чтобы видеть телефон клиента)
+    stmt = (
+        select(Order)
+        .where(
+            Order.worker_id == worker.id,
+            Order.status == OrderStatus.IN_PROGRESS
+        )
+        .options(selectinload(Order.customer)) # <--- Грузим данные клиента
+        .order_by(desc(Order.created_at))
+    )
+    
+    result = await session.execute(stmt)
+    orders = result.scalars().all()
+    return orders

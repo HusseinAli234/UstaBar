@@ -119,3 +119,7 @@ async def worker_feed_page(request: Request):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     
     return response
+
+@router.get("/webapp/worker/jobs")
+async def worker_jobs_page(request: Request):
+    return templates.TemplateResponse("worker/my_jobs.html", {"request": request})

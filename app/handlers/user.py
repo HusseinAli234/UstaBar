@@ -52,12 +52,12 @@ async def show_main_menu(message: Message, state: FSMContext, user: User):
     create_order_url = f"{settings.BASE_URL}/webapp/select-service?v={timestamp}"
     my_orders_url = f"{settings.BASE_URL}/webapp/orders?v={timestamp}"          # Список заказов
     worker_feed_url = f"{settings.BASE_URL}/webapp/worker/feed?v={timestamp}"
+    my_jobs_url = f"{settings.BASE_URL}/webapp/worker/jobs?v={timestamp}"
     if user.role == "worker":
         # Кнопка для входа в ленту
         builder.button(text="🚀 Искать заказы", web_app=WebAppInfo(url=worker_feed_url))
         
-        # Можно добавить кнопку "Мои отклики" в будущем
-        # builder.button(text="📂 Мои отклики", ...)
+        builder.button(text="📂 Мои работы (Принятые)", web_app=WebAppInfo(url=my_jobs_url))
         
         welcome_text = f"🛠 С возвращением, мастер {user.name}!\nГотовы поработать? Жмите кнопку ниже, чтобы смотреть заказы."
     else:

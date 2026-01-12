@@ -283,3 +283,58 @@ async def complete_order(
     await session.commit()
     
     return {"status": "ok", "message": "Заказ завершен"}
+
+from app.main import bot 
+from sqlalchemy.orm import selectinload
+
+
+
+@router.post("/api/orders/{order_id}/accept/{application_id}")
+async def accept_application(
+    order_id: int,
+    application_id: int,
+    authorization: str = Header(..., alias="Authorization"),
+    session: AsyncSession = Depends(get_async_session)
+):
+    # ... (код проверки авторизации и прав клиента, который мы писали ранее) ...
+
+    # 1. Получаем отклик ВМЕСТЕ с данными мастера (чтобы знать его tg_id)
+    stmt = (
+        select(OrderResponse)
+        .where(OrderResponse.id == application_id)
+        .options(selectinload(OrderResponse.worker)) # Подгружаем мастера
+    )
+    app_res = await session.execute(stmt)
+    application = app_res.scalar_one_or_none()
+    
+    if not application:
+        raise HTTPException(404, "Отклик не найден")
+
+    # 2. Получаем заказ
+    order_res = await session.execute(select(Order).where(Order.id == order_id))
+    order = order_res.scalar_one()
+
+    # 3. Обновляем статус заказа
+    order.status = OrderStatus.IN_PROGRESS
+    if application.proposed_price:
+        order.price = application.proposed_price
+    order.worker_id = application.worker_id
+    
+    await session.commit()
+    
+    # --- НОВОЕ: ОТПРАВКА УВЕДОМЛЕНИЯ МАСТЕРУ ---
+    try:
+        worker_tg_id = application.worker.tg_id
+        msg_text = (
+            f"🎉 <b>Ура! Вас выбрали исполнителем!</b>\n\n"
+            f"Заказ: {order.service_type}\n"
+            f"Цена: {order.price} ₽\n\n"
+            f"👉 Зайдите в раздел «Мои работы», чтобы увидеть контакты клиента и адрес."
+        )
+        # Отправляем сообщение
+        await bot.send_message(chat_id=worker_tg_id, text=msg_text, parse_mode="HTML")
+    except Exception as e:
+        print(f"Не удалось отправить уведомление мастеру: {e}")
+    # -------------------------------------------
+    
+    return {"status": "ok"}
